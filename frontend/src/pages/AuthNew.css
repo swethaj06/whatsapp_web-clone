@@ -38,6 +38,7 @@
 .logo-small {
   width: 100px;
   height: 100px;
+  color: #128c7e;
   filter: drop-shadow(0 4px 12px rgba(0, 0, 0, 0.2));
   animation: softBounce 2s ease-in-out infinite;
 }
