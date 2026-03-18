@@ -12,10 +12,8 @@ const WhatsAppLogin = () => {
   const [showPhoneLogin, setShowPhoneLogin] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [phoneNumber, setPhoneNumber] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const [sessionToken] = useState(Math.random().toString(36).substr(2, 9));
 
   // If already logged in, redirect to chat
   useEffect(() => {
@@ -24,40 +22,16 @@ const WhatsAppLogin = () => {
     }
   }, [user, navigate]);
 
-  const handleFormLogin = async (e) => {
+  const handleEmailLogin = async (e) => {
     e.preventDefault();
     setError('');
     setLoading(true);
 
     try {
       await login(email, password);
-      if (stayLoggedIn) {
-        localStorage.setItem('rememberMe', 'true');
-      }
       navigate('/chat');
     } catch (err) {
       setError(err.response?.data?.error || 'Login failed. Please check your credentials.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handlePhoneLogin = async (e) => {
-    e.preventDefault();
-    setError('');
-    setLoading(true);
-
-    try {
-      // In a real app, this would send the phone number to the backend
-      // For demo, we'll simulate with existing users
-      if (phoneNumber === '+1234567890') {
-        await login('alice@example.com', 'password123');
-        navigate('/chat');
-      } else {
-        setError('Phone number not found. Try +1234567890 for demo.');
-      }
-    } catch (err) {
-      setError('Phone login failed. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -67,30 +41,39 @@ const WhatsAppLogin = () => {
     return (
       <div className="whatsapp-login-container">
         <div className="whatsapp-login-content">
-          <div className="whatsapp-logo-section">
-            <FaWhatsapp className="wa-logo" />
-            <span className="whatsapp-text">WhatsApp</span>
-          </div>
-
           <div className="phone-login-form">
-            <h2>Login with Phone Number</h2>
+            <h2>Login with Email</h2>
             {error && <div className="error-banner">{error}</div>}
             
-            <form onSubmit={handlePhoneLogin}>
+            <form onSubmit={handleEmailLogin}>
               <div className="form-group">
-                <label>Country Code & Phone Number</label>
+                <label>Email Address</label>
                 <input
-                  type="tel"
-                  value={phoneNumber}
-                  onChange={(e) => setPhoneNumber(e.target.value)}
-                  placeholder="+1 (555) 123-4567"
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="your@email.com"
+                  required
+                />
+              </div>
+              <div className="form-group">
+                <label>Password</label>
+                <input
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="Your password"
                   required
                 />
               </div>
               <button type="submit" disabled={loading} className="phone-login-btn">
-                {loading ? 'Sending verification code...' : 'Next'}
+                {loading ? 'Logging in...' : 'Login'}
               </button>
             </form>
+
+            <div className="signup-link-section">
+              <p>Don't have an account? <Link to="/signup" className="signup-link">Sign up here</Link></p>
+            </div>
 
             <button 
               onClick={() => setShowPhoneLogin(false)}
@@ -98,6 +81,11 @@ const WhatsAppLogin = () => {
             >
               ← Back to QR Code
             </button>
+          </div>
+
+          <div className="whatsapp-logo-section">
+            <FaWhatsapp className="wa-logo" />
+            <span className="whatsapp-text">WhatsApp</span>
           </div>
         </div>
       </div>
@@ -128,7 +116,10 @@ const WhatsAppLogin = () => {
               <p>Get extra features like voice and video calling, screen sharing and more.</p>
             </div>
           </div>
-          <button className="download-btn">
+          <button 
+            onClick={() => window.open('https://www.whatsapp.com/download', '_blank')}
+            className="download-btn"
+          >
             Download ↓
           </button>
         </div>
@@ -170,7 +161,7 @@ const WhatsAppLogin = () => {
               onClick={() => setShowPhoneLogin(true)}
               className="phone-login-link"
             >
-              Log in with phone number →
+              Log in with email →
             </button>
           </div>
 
@@ -178,7 +169,7 @@ const WhatsAppLogin = () => {
           <div className="qr-code-section">
             <div className="qr-wrapper">
               <QRCodeSVG
-                value={`whatsapp-clone:${sessionToken}`}
+                value="https://www.whatsapp.com/download"
                 size={256}
                 level="H"
                 includeMargin={true}
@@ -187,39 +178,7 @@ const WhatsAppLogin = () => {
           </div>
         </div>
 
-        {/* Demo: Alternative Login Method */}
-        <div className="demo-login-section">
-          <h3>Demo Login (for testing)</h3>
-          {error && <div className="error-banner">{error}</div>}
-          
-          <form onSubmit={handleFormLogin} className="demo-login-form">
-            <div className="form-group">
-              <input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="Email"
-                required
-              />
-            </div>
-            <div className="form-group">
-              <input
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="Password"
-                required
-              />
-            </div>
-            <button type="submit" disabled={loading} className="demo-login-btn">
-              {loading ? 'Logging in...' : 'Demo Login'}
-            </button>
-          </form>
 
-          <p className="demo-hint">
-            Try: alice@example.com / password123 or bob@example.com / password123
-          </p>
-        </div>
       </div>
 
       {/* Footer */}
