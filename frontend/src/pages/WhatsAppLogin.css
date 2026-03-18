@@ -421,6 +421,15 @@
   text-decoration: underline;
 }
 
+/* Phone Info and OTP Info */
+.phone-info,
+.otp-info {
+  margin: 0 0 25px 0;
+  font-size: 13px;
+  color: #666;
+  line-height: 1.5;
+}
+
 .error-banner {
   background-color: #fee;
   color: #c33;

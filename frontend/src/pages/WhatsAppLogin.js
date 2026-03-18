@@ -3,6 +3,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { QRCodeSVG } from 'qrcode.react';
 import { FaWhatsapp } from 'react-icons/fa';
+import { sendOtpApi, verifyOtpApi } from '../config/api';
 import './WhatsAppLogin.css';
 
 const WhatsAppLogin = () => {
@@ -10,8 +11,9 @@ const WhatsAppLogin = () => {
   const { user, login } = useAuth();
   const [stayLoggedIn, setStayLoggedIn] = useState(true);
   const [showPhoneLogin, setShowPhoneLogin] = useState(false);
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const [phoneNumber, setPhoneNumber] = useState('');
+  const [otp, setOtp] = useState('');
+  const [showOtpScreen, setShowOtpScreen] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -22,58 +24,137 @@ const WhatsAppLogin = () => {
     }
   }, [user, navigate]);
 
-  const handleEmailLogin = async (e) => {
+  const handleSendOtp = async (e) => {
     e.preventDefault();
     setError('');
     setLoading(true);
 
     try {
-      await login(email, password);
+      if (phoneNumber.length < 10) {
+        setError('Please enter a valid phone number');
+        setLoading(false);
+        return;
+      }
+      
+      // Send OTP via API
+      const data = await sendOtpApi(phoneNumber);
+      
+      // Show debug OTP in console for demo
+      if (data.debug_otp) {
+        console.log(`Demo OTP for testing: ${data.debug_otp}`);
+      }
+      
+      setShowOtpScreen(true);
+    } catch (err) {
+      console.error('OTP Send Error:', err);
+      setError(err.message || 'Failed to send OTP. Make sure backend is running on http://localhost:5000');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleVerifyOtp = async (e) => {
+    e.preventDefault();
+    setError('');
+    setLoading(true);
+
+    try {
+      if (otp.length < 4) {
+        setError('Please enter a valid OTP');
+        setLoading(false);
+        return;
+      }
+      
+      // Verify OTP with backend
+      const data = await verifyOtpApi(phoneNumber, otp);
+      
+      // Store token and navigate
+      if (data.token) {
+        localStorage.setItem('token', data.token);
+      }
+      
       navigate('/chat');
     } catch (err) {
-      setError(err.response?.data?.error || 'Login failed. Please check your credentials.');
+      console.error('OTP Verify Error:', err);
+      setError(err.message || 'Invalid OTP. Please try again.');
     } finally {
       setLoading(false);
     }
   };
 
   if (showPhoneLogin) {
+    // OTP Verification Screen
+    if (showOtpScreen) {
+      return (
+        <div className="whatsapp-login-container">
+          <div className="whatsapp-login-content">
+            <div className="phone-login-form">
+              <h2>Verify OTP</h2>
+              <p className="otp-info">Enter the One-Time Password sent to your WhatsApp</p>
+              {error && <div className="error-banner">{error}</div>}
+              
+              <form onSubmit={handleVerifyOtp}>
+                <div className="form-group">
+                  <label>One-Time Password (OTP)</label>
+                  <input
+                    type="text"
+                    value={otp}
+                    onChange={(e) => setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                    placeholder="000000"
+                    maxLength="6"
+                    required
+                  />
+                </div>
+                <button type="submit" disabled={loading} className="phone-login-btn">
+                  {loading ? 'Verifying...' : 'Verify OTP'}
+                </button>
+              </form>
+
+              <button 
+                onClick={() => {
+                  setShowOtpScreen(false);
+                  setOtp('');
+                  setPhoneNumber('');
+                }}
+                className="back-to-qr-btn"
+              >
+                ← Back
+              </button>
+            </div>
+
+            <div className="whatsapp-logo-section">
+              <FaWhatsapp className="wa-logo" />
+              <span className="whatsapp-text">WhatsApp</span>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    // Phone Number Input Screen
     return (
       <div className="whatsapp-login-container">
         <div className="whatsapp-login-content">
           <div className="phone-login-form">
-            <h2>Login with Email</h2>
+            <h2>Sign In with Phone Number</h2>
+            <p className="phone-info">We'll send you a One-Time Password (OTP) via WhatsApp</p>
             {error && <div className="error-banner">{error}</div>}
             
-            <form onSubmit={handleEmailLogin}>
+            <form onSubmit={handleSendOtp}>
               <div className="form-group">
-                <label>Email Address</label>
+                <label>Phone Number</label>
                 <input
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="your@email.com"
-                  required
-                />
-              </div>
-              <div className="form-group">
-                <label>Password</label>
-                <input
-                  type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="Your password"
+                  type="tel"
+                  value={phoneNumber}
+                  onChange={(e) => setPhoneNumber(e.target.value)}
+                  placeholder="+1 (555) 123-4567"
                   required
                 />
               </div>
               <button type="submit" disabled={loading} className="phone-login-btn">
-                {loading ? 'Logging in...' : 'Login'}
+                {loading ? 'Sending OTP...' : 'Send OTP'}
               </button>
             </form>
-
-            <div className="signup-link-section">
-              <p>Don't have an account? <Link to="/signup" className="signup-link">Sign up here</Link></p>
-            </div>
 
             <button 
               onClick={() => setShowPhoneLogin(false)}
@@ -161,7 +242,7 @@ const WhatsAppLogin = () => {
               onClick={() => setShowPhoneLogin(true)}
               className="phone-login-link"
             >
-              Log in with email →
+              Log in with phone number →
             </button>
           </div>
 
