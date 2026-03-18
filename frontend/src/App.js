@@ -1,18 +1,29 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './contexts/AuthContext';
 import PrivateRoute from './components/PrivateRoute';
-import Login from './pages/Login';
+import Loading from './pages/Loading';
+import WhatsAppLogin from './pages/WhatsAppLogin';
 import Signup from './pages/Signup';
 import Chat from './pages/Chat';
 import './App.css';
 
 function App() {
+  const [isLoading, setIsLoading] = useState(true);
+
+  const handleLoadingComplete = () => {
+    setIsLoading(false);
+  };
+
+  if (isLoading) {
+    return <Loading onComplete={handleLoadingComplete} />;
+  }
+
   return (
     <Router>
       <AuthProvider>
         <Routes>
-          <Route path="/login" element={<Login />} />
+          <Route path="/login" element={<WhatsAppLogin />} />
           <Route path="/signup" element={<Signup />} />
           <Route
             path="/chat"
@@ -22,7 +33,7 @@ function App() {
               </PrivateRoute>
             }
           />
-          <Route path="/" element={<Navigate to="/chat" />} />
+          <Route path="/" element={<Navigate to="/login" />} />
         </Routes>
       </AuthProvider>
     </Router>
