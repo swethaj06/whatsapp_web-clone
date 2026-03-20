@@ -3,7 +3,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { FaWhatsapp } from 'react-icons/fa';
 import { MdOutlineComputer } from 'react-icons/md';
-import './AuthNew.css';
+import './WhatsAppLogin.css';
 
 const Signup = () => {
   const [username, setUsername] = useState('');
