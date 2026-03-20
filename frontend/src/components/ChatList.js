@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { MdSearch, MdMoreVert, MdOutlineAddComment } from 'react-icons/md';
+import { MdSearch, MdMoreVert, MdOutlineAddComment, MdStar, MdStarBorder } from 'react-icons/md';
 import { IoMdPeople } from 'react-icons/io';
 import { AiOutlineStar } from 'react-icons/ai';
 import { BiCheckDouble, BiLockAlt } from 'react-icons/bi';
@@ -8,7 +8,41 @@ import './ChatList.css';
 
 const ChatList = ({ users, currentUser, selectedUser, onSelectUser, onLogout, onProfileClick }) => {
   const [showDropdown, setShowDropdown] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [activeFilter, setActiveFilter] = useState('all');
+  const [favourites, setFavourites] = useState(() => {
+    try {
+      return JSON.parse(localStorage.getItem('whatsapp_favourites')) || [];
+    } catch (e) {
+      return [];
+    }
+  });
   const dropdownRef = useRef(null);
+
+  const toggleFavourite = (userId, e) => {
+    e.stopPropagation();
+    let newFavs;
+    if (favourites.includes(userId)) {
+      newFavs = favourites.filter(id => id !== userId);
+    } else {
+      newFavs = [...favourites, userId];
+    }
+    setFavourites(newFavs);
+    localStorage.setItem('whatsapp_favourites', JSON.stringify(newFavs));
+    window.dispatchEvent(new CustomEvent('favourites_updated', { detail: newFavs }));
+  };
+
+  useEffect(() => {
+    const handleFavouritesUpdate = (e) => {
+      setFavourites(e.detail);
+    };
+    
+    window.addEventListener('favourites_updated', handleFavouritesUpdate);
+    
+    return () => {
+      window.removeEventListener('favourites_updated', handleFavouritesUpdate);
+    };
+  }, []);
 
   // ... (keep useEffect)
 
@@ -42,21 +76,41 @@ const ChatList = ({ users, currentUser, selectedUser, onSelectUser, onLogout, on
       <div className="chat-list-search-container">
         <div className="chat-search-bar">
           <MdSearch className="search-icon" />
-          <input type="text" placeholder="Search or start a new chat" />
+          <input 
+            type="text" 
+            placeholder="Search or start a new chat" 
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+          />        
         </div>
       </div>
 
       <div className="chat-filter-chips">
-        <div className="filter-chip active">All</div>
-        <div className="filter-chip">Unread</div>
-        <div className="filter-chip">Favourites</div>
+        <div className={`filter-chip ${activeFilter === 'all' ? 'active' : ''}`} onClick={() => setActiveFilter('all')}>All</div>
+        <div className={`filter-chip ${activeFilter === 'unread' ? 'active' : ''}`} onClick={() => setActiveFilter('unread')}>Unread</div>
+        <div className={`filter-chip ${activeFilter === 'favourites' ? 'active' : ''}`} onClick={() => setActiveFilter('favourites')}>Favourites</div>
       </div>
 
       <div className="chat-list-items">
-        {users.length === 0 ? (
-          <div className="no-users">No users available</div>
-        ) : (
-          users.map(u => {
+        {(() => {
+          let listToFilter = users;
+          if (activeFilter === 'unread') {
+            listToFilter = listToFilter.filter(u => u.unreadCount && u.unreadCount > 0);
+          } else if (activeFilter === 'favourites') {
+            listToFilter = listToFilter.filter(u => favourites.includes(u._id || u.id));
+          }
+
+          const filteredUsers = listToFilter.filter((u) =>
+            u.username?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            u.phoneNumber?.includes(searchQuery) ||
+            u.email?.toLowerCase().includes(searchQuery.toLowerCase())
+          );
+
+          if (filteredUsers.length === 0) {
+            return <div className="no-users">No users found</div>;
+          }
+
+          return filteredUsers.map(u => {
             const userId = u._id || u.id;
             const selectedId = selectedUser ? (selectedUser._id || selectedUser.id) : null;
             const isActive = selectedId === userId;
@@ -81,12 +135,14 @@ const ChatList = ({ users, currentUser, selectedUser, onSelectUser, onLogout, on
                 </div>
                 <div className="chat-item-meta">
                   {u.lastMessageTime && <div className="chat-time">{u.lastMessageTime}</div>}
-                  {u.unreadCount > 0 && <div className="unread-badge">{u.unreadCount}</div>}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '5px', marginTop: '4px', justifyContent: 'flex-end' }}>
+                    {u.unreadCount > 0 && <div className="unread-badge">{u.unreadCount}</div>}
+                  </div>
                 </div>
               </div>
             );
-          })
-        )}
+          });
+        })()}
       </div>
     </div>
   );

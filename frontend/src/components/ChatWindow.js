@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import EmojiPicker from 'emoji-picker-react';
-import { MdCall, MdVideoCall, MdSearch, MdSend, MdMoreVert, MdDeleteOutline, MdClose, MdHistory, MdArrowBack } from 'react-icons/md';
+import { MdCall, MdVideoCall, MdSearch, MdSend, MdMoreVert, MdDeleteOutline, MdClose, MdHistory, MdArrowBack, MdStar, MdStarBorder } from 'react-icons/md';
 import { BsEmojiSmile, BsPaperclip, BsMic, BsFillPlusCircleFill } from 'react-icons/bs';
 import { IoMdInformationCircleOutline } from 'react-icons/io';
 import { AiOutlineClear } from 'react-icons/ai';
@@ -16,7 +16,37 @@ const ChatWindow = ({ selectedUser, messages, onSendMessage, currentUser, isTypi
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
   const [showContactInfo, setShowContactInfo] = useState(false);
+  const [favourites, setFavourites] = useState(() => {
+    try {
+      return JSON.parse(localStorage.getItem('whatsapp_favourites')) || [];
+    } catch (e) {
+      return [];
+    }
+  });
   const typingTimeoutRef = useRef(null);
+
+  const toggleFavourite = (userId, e) => {
+    e.stopPropagation();
+    let newFavs;
+    if (favourites.includes(userId)) {
+      newFavs = favourites.filter(id => id !== userId);
+    } else {
+      newFavs = [...favourites, userId];
+    }
+    setFavourites(newFavs);
+    localStorage.setItem('whatsapp_favourites', JSON.stringify(newFavs));
+    window.dispatchEvent(new CustomEvent('favourites_updated', { detail: newFavs }));
+  };
+
+  useEffect(() => {
+    const handleFavouritesUpdate = (e) => {
+      setFavourites(e.detail);
+    };
+    window.addEventListener('favourites_updated', handleFavouritesUpdate);
+    return () => {
+      window.removeEventListener('favourites_updated', handleFavouritesUpdate);
+    };
+  }, []);
 
   // Handle typing events
   useEffect(() => {
@@ -167,6 +197,13 @@ const ChatWindow = ({ selectedUser, messages, onSendMessage, currentUser, isTypi
             </button>
             {showDropdown && (
               <div className="chat-window-dropdown">
+                <div className="dropdown-item" onClick={(e) => { toggleFavourite(selectedUser._id || selectedUser.id, e); setShowDropdown(false); }}>
+                  {favourites.includes(selectedUser._id || selectedUser.id) ? (
+                    <><MdStar className="menu-icon" style={{color: '#00a884'}} /> Remove favourite</>
+                  ) : (
+                    <><MdStarBorder className="menu-icon" /> Add to favourites</>
+                  )}
+                </div>
                 <div className="dropdown-item" onClick={handleContactInfo}>
                   <IoMdInformationCircleOutline className="menu-icon" /> Contact info
                 </div>

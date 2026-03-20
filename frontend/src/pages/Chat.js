@@ -5,6 +5,7 @@ import { userAPI, messageAPI } from '../services/api';
 import { connectSocket, disconnectSocket } from '../services/socket';
 import ChatList from '../components/ChatList';
 import ChatWindow from '../components/ChatWindow';
+import toast from 'react-hot-toast';
 import './Chat.css';
 import { FaWhatsapp } from 'react-icons/fa';
 import { MdLockOutline, MdChat, MdDonutLarge, MdGroups, MdSettings, MdLaptopMac, MdInsertDriveFile, MdPersonAddAlt1, MdArrowBack, MdEdit } from 'react-icons/md';
@@ -152,12 +153,41 @@ const Chat = () => {
 
     socket.on('user_profile_update', handleProfileUpdate);
 
+    const handleNewUser = (newUser) => {
+      setUsers(prev => {
+        const exists = prev.some(u => (u._id || u.id).toString() === (newUser._id || newUser.id).toString());
+        if (exists || (user._id || user.id).toString() === (newUser._id || newUser.id).toString()) {
+          return prev;
+        }
+
+        // Show a professional toast notification when a new user joins
+        toast(`${newUser.username} is on your contact. You can search and message them!`, {
+          icon: '👋',
+          style: {
+            borderRadius: '10px',
+            background: '#333',
+            color: '#fff',
+          },
+          duration: 5000,
+        });
+
+        return [...prev, {
+          ...newUser,
+          lastMessage: 'Hey there! I am using WhatsApp.',
+          lastMessageTime: ''
+        }];
+      });
+    };
+
+    socket.on('new_user', handleNewUser);
+
     return () => {
       socket.off('receive_message', handleReceiveMessage);
       socket.off('user_status_change', handleStatusChange);
       socket.off('user_typing');
       socket.off('user_stop_typing');
       socket.off('user_profile_update', handleProfileUpdate);
+      socket.off('new_user', handleNewUser);
     };
   }, [selectedUser, user, socket]);
 
@@ -190,6 +220,17 @@ const Chat = () => {
     // Clear messages and selected user
     setMessages([]);
     setSelectedUser(null);
+  };
+
+  const handleSelectUser = (userToSelect) => {
+    setSelectedUser(userToSelect);
+    // Clear unread count for this user
+    setUsers(prev => prev.map(u => {
+      if ((u._id || u.id).toString() === (userToSelect._id || userToSelect.id).toString()) {
+        return { ...u, unreadCount: 0 };
+      }
+      return u;
+    }));
   };
 
   const handleLogout = () => {
@@ -330,7 +371,7 @@ const Chat = () => {
             users={users}
             currentUser={user}
             selectedUser={selectedUser}
-            onSelectUser={setSelectedUser}
+            onSelectUser={handleSelectUser}
             onLogout={handleLogout}
             onProfileClick={() => setShowProfile(true)}
           />

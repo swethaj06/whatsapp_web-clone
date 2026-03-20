@@ -25,6 +25,17 @@ exports.signup = async (req, res) => {
 
     await user.save();
 
+    if (req.io) {
+      req.io.emit('new_user', {
+        id: user._id,
+        _id: user._id,
+        username: user.username,
+        email: user.email,
+        profilePicture: user.profilePicture,
+        status: user.status
+      });
+    }
+
     // Generate JWT token
     const token = jwt.sign({ userId: user._id }, process.env.JWT_SECRET || 'secret', { expiresIn: '24h' });
 
@@ -141,8 +152,18 @@ exports.sendOtp = async (req, res) => {
         otp,
         otpExpiry
       });
-      await user.save();
-    }
+      await user.save();      
+      if (req.io) {
+        req.io.emit('new_user', {
+          id: user._id,
+          _id: user._id,
+          username: user.username,
+          phoneNumber: user.phoneNumber,
+          email: user.email,
+          profilePicture: user.profilePicture,
+          status: user.status
+        });
+      }    }
 
     // TODO: Integrate with Twilio or WhatsApp Business API
     // For now, log the OTP for demo purposes

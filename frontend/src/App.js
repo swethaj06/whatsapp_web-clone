@@ -6,6 +6,7 @@ import Loading from './pages/Loading';
 import Login from './pages/Login';
 import Signup from './pages/Signup';
 import Chat from './pages/Chat';
+import { Toaster } from 'react-hot-toast';
 import './App.css';
 
 function App() {
@@ -22,6 +23,7 @@ function App() {
   return (
     <Router>
       <AuthProvider>
+        <Toaster position="top-right" />
         <Routes>
           <Route path="/login" element={<Login />} />
           <Route path="/signup" element={<Signup />} />
