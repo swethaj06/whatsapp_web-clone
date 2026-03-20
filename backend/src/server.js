@@ -53,9 +53,16 @@ app.use('/api/messages', messageRoutes);
 io.on('connection', (socket) => {
   console.log('New user connected:', socket.id);
 
+  socket.on('join', (userId) => {
+    socket.join(userId);
+    console.log(`User ${userId} joined room`);
+  });
+
   socket.on('send_message', (data) => {
     console.log('Message received:', data);
-    io.emit('receive_message', data);
+    const receiverId = data.receiver._id || data.receiver;
+    const senderId = data.sender._id || data.sender;
+    io.to(receiverId.toString()).to(senderId.toString()).emit('receive_message', data);
   });
 
   socket.on('disconnect', () => {

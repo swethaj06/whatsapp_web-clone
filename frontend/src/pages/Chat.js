@@ -27,7 +27,8 @@ const Chat = () => {
       try {
         const response = await userAPI.getAllUsers();
         // Filter out current user
-        const otherUsers = response.data.filter(u => u.id !== user.id);
+        const currentUserId = user._id || user.id;
+        const otherUsers = response.data.filter(u => (u._id || u.id) !== currentUserId);
         setUsers(otherUsers);
         setLoading(false);
       } catch (error) {
@@ -38,6 +39,9 @@ const Chat = () => {
 
     // Connect to socket
     const socketInstance = connectSocket();
+    if (socketInstance && user) {
+      socketInstance.emit('join', user._id || user.id);
+    }
     setSocket(socketInstance);
 
     fetchUsers();
@@ -53,7 +57,9 @@ const Chat = () => {
     // Fetch messages for selected user
     const fetchMessages = async () => {
       try {
-        const response = await messageAPI.getMessages(user.id, selectedUser.id);
+        const currentUserId = user._id || user.id;
+        const selectedId = selectedUser._id || selectedUser.id;
+        const response = await messageAPI.getMessages(currentUserId, selectedId);
         setMessages(response.data);
       } catch (error) {
         console.error('Error fetching messages:', error);
@@ -64,11 +70,19 @@ const Chat = () => {
 
     // Listen for new messages
     const handleReceiveMessage = (data) => {
+      const msgSenderId = data.sender._id || data.sender;
+      const msgReceiverId = data.receiver._id || data.receiver;
+      const currentUserId = user._id || user.id;
+      const selectedId = selectedUser._id || selectedUser.id;
+
       if (
-        (data.sender === user.id && data.receiver === selectedUser.id) ||
-        (data.sender === selectedUser.id && data.receiver === user.id)
+        (msgSenderId === currentUserId && msgReceiverId === selectedId) ||
+        (msgSenderId === selectedId && msgReceiverId === currentUserId)
       ) {
-        setMessages(prev => [...prev, data]);
+        setMessages(prev => {
+          if (prev.some(m => (m._id || m.id) === (data._id || data.id))) return prev;
+          return [...prev, data];
+        });
       }
     };
 
@@ -84,8 +98,8 @@ const Chat = () => {
 
     try {
       const messageData = {
-        sender: user.id,
-        receiver: selectedUser.id,
+        sender: user._id || user.id,
+        receiver: selectedUser._id || selectedUser.id,
         content
       };
 

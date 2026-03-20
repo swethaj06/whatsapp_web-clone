@@ -3,7 +3,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import { AuthProvider } from './contexts/AuthContext';
 import PrivateRoute from './components/PrivateRoute';
 import Loading from './pages/Loading';
-import WhatsAppLogin from './pages/WhatsAppLogin';
+import Login from './pages/Login';
 import Signup from './pages/Signup';
 import Chat from './pages/Chat';
 import './App.css';
@@ -23,7 +23,7 @@ function App() {
     <Router>
       <AuthProvider>
         <Routes>
-          <Route path="/login" element={<WhatsAppLogin />} />
+          <Route path="/login" element={<Login />} />
           <Route path="/signup" element={<Signup />} />
           <Route
             path="/chat"
