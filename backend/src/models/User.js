@@ -43,6 +43,12 @@ const userSchema = new mongoose.Schema({
     type: Date,
     default: Date.now
   }
+}, {
+  timestamps: true
 });
+
+userSchema.index({ username: 1 });
+userSchema.index({ email: 1 });
+userSchema.index({ phoneNumber: 1 });
 
 module.exports = mongoose.model('User', userSchema);

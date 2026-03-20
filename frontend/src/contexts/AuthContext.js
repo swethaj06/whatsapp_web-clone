@@ -56,6 +56,20 @@ export const AuthProvider = ({ children }) => {
     localStorage.removeItem('token');
   };
 
+  const updateUserProfile = async (updates) => {
+    try {
+      const currentUserId = user._id || user.id;
+      const response = await userAPI.updateUser(currentUserId, updates);
+      const updatedUser = response.data;
+      setUser(updatedUser);
+      localStorage.setItem('user', JSON.stringify(updatedUser));
+      return updatedUser;
+    } catch (error) {
+      console.error('Update profile error:', error);
+      throw error;
+    }
+  };
+
   const value = {
     user,
     token,
@@ -63,6 +77,7 @@ export const AuthProvider = ({ children }) => {
     login,
     signup,
     logout,
+    updateUserProfile,
     isAuthenticated: !!user
   };
 

@@ -53,9 +53,27 @@ app.use('/api/messages', messageRoutes);
 io.on('connection', (socket) => {
   console.log('New user connected:', socket.id);
 
-  socket.on('join', (userId) => {
+  socket.on('join', async (userId) => {
     socket.join(userId);
+    socket.userId = userId; // Store userId on socket for disconnect handling
     console.log(`User ${userId} joined room`);
+    
+    // Update user status to online
+    const User = require('./models/User');
+    try {
+      await User.findByIdAndUpdate(userId, { status: 'online' });
+      io.emit('user_status_change', { userId, status: 'online' });
+    } catch (err) {
+      console.error('Error updating status:', err);
+    }
+  });
+
+  socket.on('typing', (data) => {
+    io.to(data.receiverId.toString()).emit('user_typing', { senderId: data.senderId });
+  });
+
+  socket.on('stop_typing', (data) => {
+    io.to(data.receiverId.toString()).emit('user_stop_typing', { senderId: data.senderId });
   });
 
   socket.on('send_message', (data) => {
@@ -65,8 +83,17 @@ io.on('connection', (socket) => {
     io.to(receiverId.toString()).to(senderId.toString()).emit('receive_message', data);
   });
 
-  socket.on('disconnect', () => {
+  socket.on('disconnect', async () => {
     console.log('User disconnected:', socket.id);
+    if (socket.userId) {
+      const User = require('./models/User');
+      try {
+        await User.findByIdAndUpdate(socket.userId, { status: 'offline' });
+        io.emit('user_status_change', { userId: socket.userId, status: 'offline' });
+      } catch (err) {
+        console.error('Error updating status:', err);
+      }
+    }
   });
 });
 

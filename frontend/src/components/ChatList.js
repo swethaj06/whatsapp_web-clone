@@ -1,12 +1,57 @@
-import React from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+import { MdSearch, MdMoreVert, MdOutlineAddComment } from 'react-icons/md';
+import { IoMdPeople } from 'react-icons/io';
+import { AiOutlineStar } from 'react-icons/ai';
+import { BiCheckDouble, BiLockAlt } from 'react-icons/bi';
+import { MdOutlinePlaylistAddCheck, MdLogout } from 'react-icons/md';
 import './ChatList.css';
 
-const ChatList = ({ users, selectedUser, onSelectUser }) => {
+const ChatList = ({ users, currentUser, selectedUser, onSelectUser, onLogout, onProfileClick }) => {
+  const [showDropdown, setShowDropdown] = useState(false);
+  const dropdownRef = useRef(null);
+
+  // ... (keep useEffect)
+
   return (
     <div className="chat-list">
       <div className="chat-list-header">
-        <h2>Chats</h2>
+        <div className="header-left">
+          <h2>WhatsApp</h2>
+        </div>
+        <div className="header-icons">
+          <MdOutlineAddComment className="header-icon" />
+          <div className="dropdown-wrapper" ref={dropdownRef}>
+            <MdMoreVert 
+              className={`header-icon ${showDropdown ? 'active' : ''}`} 
+              onClick={() => setShowDropdown(!showDropdown)}
+            />
+            {showDropdown && (
+              <div className="chat-list-dropdown">
+                <div className="dropdown-item"><IoMdPeople className="menu-icon" /> New group</div>
+                <div className="dropdown-item"><AiOutlineStar className="menu-icon" /> Starred messages</div>
+                <div className="dropdown-item"><MdOutlinePlaylistAddCheck className="menu-icon" /> Select chats</div>
+                <div className="dropdown-item"><BiCheckDouble className="menu-icon" /> Mark all as read</div>
+                <div className="dropdown-item"><BiLockAlt className="menu-icon" /> App lock</div>
+                <div className="dropdown-item logout" onClick={onLogout}><MdLogout className="menu-icon" /> Log out</div>
+              </div>
+            )}
+          </div>
+        </div>
       </div>
+      
+      <div className="chat-list-search-container">
+        <div className="chat-search-bar">
+          <MdSearch className="search-icon" />
+          <input type="text" placeholder="Search or start a new chat" />
+        </div>
+      </div>
+
+      <div className="chat-filter-chips">
+        <div className="filter-chip active">All</div>
+        <div className="filter-chip">Unread</div>
+        <div className="filter-chip">Favourites</div>
+      </div>
+
       <div className="chat-list-items">
         {users.length === 0 ? (
           <div className="no-users">No users available</div>
@@ -23,17 +68,21 @@ const ChatList = ({ users, selectedUser, onSelectUser }) => {
                 onClick={() => onSelectUser(u)}
               >
                 <div className="chat-item-avatar">
-                  {u.username ? u.username.charAt(0).toUpperCase() : '?'}
+                  {u.profilePicture ? (
+                    <img src={u.profilePicture} alt={u.username} style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover' }} />
+                  ) : (
+                    u.username ? u.username.charAt(0).toUpperCase() : '?'
+                  )}
+                  {u.status === 'online' && <div className="online-indicator"></div>}
                 </div>
                 <div className="chat-item-content">
                   <div className="chat-item-name">{u.username}</div>
-                  <div className="chat-item-preview">{u.lastMessage || u.email}</div>
+                  <div className="chat-item-preview">{u.lastMessage || 'Hey there! I am using WhatsApp.'}</div>
                 </div>
                 <div className="chat-item-meta">
                   {u.lastMessageTime && <div className="chat-time">{u.lastMessageTime}</div>}
                   {u.unreadCount > 0 && <div className="unread-badge">{u.unreadCount}</div>}
                 </div>
-                {isActive && <div className="active-indicator" />}
               </div>
             );
           })
