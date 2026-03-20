@@ -12,9 +12,17 @@ export const AuthProvider = ({ children }) => {
     // Check if user is logged in on mount
     const storedUser = localStorage.getItem('user');
     const storedToken = localStorage.getItem('token');
+    
     if (storedUser && storedToken) {
       setUser(JSON.parse(storedUser));
       setToken(storedToken);
+      // Fetch latest profile to get profile picture since it might not be in localStorage
+      const parsedUser = JSON.parse(storedUser);
+      const userId = parsedUser._id || parsedUser.id;
+      userAPI.getUser(userId).then(res => {
+        setUser(res.data);
+        // deliberately avoiding putting potentially huge photo in localstorage here
+      }).catch(err => console.error('Failed to fetch latest user info', err));
     }
     setLoading(false);
   }, []);
@@ -25,7 +33,12 @@ export const AuthProvider = ({ children }) => {
       const { user, token } = response.data;
       setUser(user);
       setToken(token);
-      localStorage.setItem('user', JSON.stringify(user));
+      
+      const userToStore = { ...user };
+      if (userToStore.profilePicture && userToStore.profilePicture.length > 500000) {
+        delete userToStore.profilePicture;
+      }
+      localStorage.setItem('user', JSON.stringify(userToStore));
       localStorage.setItem('token', token);
       return user;
     } catch (error) {
@@ -40,7 +53,12 @@ export const AuthProvider = ({ children }) => {
       const { user, token } = response.data;
       setUser(user);
       setToken(token);
-      localStorage.setItem('user', JSON.stringify(user));
+      
+      const userToStore = { ...user };
+      if (userToStore.profilePicture && userToStore.profilePicture.length > 500000) {
+        delete userToStore.profilePicture;
+      }
+      localStorage.setItem('user', JSON.stringify(userToStore));
       localStorage.setItem('token', token);
       return user;
     } catch (error) {
@@ -62,7 +80,14 @@ export const AuthProvider = ({ children }) => {
       const response = await userAPI.updateUser(currentUserId, updates);
       const updatedUser = response.data;
       setUser(updatedUser);
-      localStorage.setItem('user', JSON.stringify(updatedUser));
+      
+      // Prevent QuotaExceededError by removing large profile pictures from localStorage
+      const userToStore = { ...updatedUser };
+      if (userToStore.profilePicture && userToStore.profilePicture.length > 500000) {
+        delete userToStore.profilePicture;
+      }
+      localStorage.setItem('user', JSON.stringify(userToStore));
+      
       return updatedUser;
     } catch (error) {
       console.error('Update profile error:', error);

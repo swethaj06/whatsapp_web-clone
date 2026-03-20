@@ -19,8 +19,8 @@ const io = socketIO(server, {
 
 // Middleware
 app.use(cors());
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
 // Database Connection
 const connectDB = async () => {
@@ -49,14 +49,16 @@ const messageRoutes = require('./routes/messageRoutes');
 app.use('/api/users', userRoutes);
 app.use('/api/messages', messageRoutes);
 
+const ActivityLog = require('./models/ActivityLog');
+
 // Socket.IO connection handling
-io.on('connection', (socket) => {
-  console.log('New user connected:', socket.id);
+io.on('connection', async (socket) => {
+  try { await ActivityLog.create({ socketId: socket.id, action: 'connected' }); } catch(e) {}
 
   socket.on('join', async (userId) => {
     socket.join(userId);
     socket.userId = userId; // Store userId on socket for disconnect handling
-    console.log(`User ${userId} joined room`);
+    try { await ActivityLog.create({ socketId: socket.id, userId, action: 'joined_room' }); } catch(e) {}
     
     // Update user status to online
     const User = require('./models/User');
@@ -76,15 +78,19 @@ io.on('connection', (socket) => {
     io.to(data.receiverId.toString()).emit('user_stop_typing', { senderId: data.senderId });
   });
 
-  socket.on('send_message', (data) => {
-    console.log('Message received:', data);
+  socket.on('update_profile', (data) => {
+    io.emit('user_profile_update', data);
+  });
+
+  socket.on('send_message', async (data) => {
+    try { await ActivityLog.create({ socketId: socket.id, action: 'message_received' }); } catch(e) {}
     const receiverId = data.receiver._id || data.receiver;
     const senderId = data.sender._id || data.sender;
     io.to(receiverId.toString()).to(senderId.toString()).emit('receive_message', data);
   });
 
   socket.on('disconnect', async () => {
-    console.log('User disconnected:', socket.id);
+    try { await ActivityLog.create({ socketId: socket.id, userId: socket.userId, action: 'disconnected' }); } catch(e) {}
     if (socket.userId) {
       const User = require('./models/User');
       try {

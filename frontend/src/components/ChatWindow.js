@@ -1,20 +1,21 @@
 import React, { useState, useEffect, useRef } from 'react';
 import EmojiPicker from 'emoji-picker-react';
-import { MdCall, MdVideoCall, MdSearch, MdSend, MdMoreVert } from 'react-icons/md';
+import { MdCall, MdVideoCall, MdSearch, MdSend, MdMoreVert, MdDeleteOutline, MdClose, MdHistory, MdArrowBack } from 'react-icons/md';
 import { BsEmojiSmile, BsPaperclip, BsMic, BsFillPlusCircleFill } from 'react-icons/bs';
 import { IoMdInformationCircleOutline } from 'react-icons/io';
-import { MdOutlinePlaylistAddCheck, MdNotificationsOff, MdHistory, MdLockOutline, MdFavoriteBorder, MdPlaylistAdd, MdClose, MdOutlineReport, MdBlock, MdDeleteOutline } from 'react-icons/md';
 import { AiOutlineClear } from 'react-icons/ai';
 import { FaFileLines, FaImage, FaCamera, FaHeadphones, FaUser, FaCheckToSlot, FaCalendarDays, FaFaceGrinWide } from 'react-icons/fa6';
 import { BiCheckDouble } from 'react-icons/bi';
+import { messageAPI } from '../services/api';
 import './ChatWindow.css';
 
-const ChatWindow = ({ selectedUser, messages, onSendMessage, currentUser, isTyping, socket }) => {
+const ChatWindow = ({ selectedUser, messages, onSendMessage, currentUser, isTyping, socket, onClearChat, onDeleteChat, setMessages }) => {
   const [messageText, setMessageText] = useState('');
   const [showDropdown, setShowDropdown] = useState(false);
   const [showAttachments, setShowAttachments] = useState(false);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
+  const [showContactInfo, setShowContactInfo] = useState(false);
   const typingTimeoutRef = useRef(null);
 
   // Handle typing events
@@ -88,23 +89,71 @@ const ChatWindow = ({ selectedUser, messages, onSendMessage, currentUser, isTypi
     setMessageText(prev => prev + emojiData.emoji);
   };
 
+  const handleContactInfo = () => {
+    setShowContactInfo(true);
+    setShowDropdown(false);
+  };
+
+  const handleClearChat = async () => {
+    if (!window.confirm('Clear all messages in this conversation? This action cannot be undone.')) {
+      return;
+    }
+    try {
+      const currentUserId = currentUser._id || currentUser.id;
+      const selectedId = selectedUser._id || selectedUser.id;
+      await messageAPI.deleteMessages(currentUserId, selectedId);
+      // Clear messages from UI
+      if (setMessages) setMessages([]);
+      setShowDropdown(false);
+      alert('Chat cleared successfully');
+    } catch (error) {
+      console.error('Error clearing chat:', error);
+      alert('Failed to clear chat');
+    }
+  };
+
+  const handleDeleteChat = async () => {
+    if (!window.confirm('Delete this conversation? This action cannot be undone.')) {
+      return;
+    }
+    try {
+      const currentUserId = currentUser._id || currentUser.id;
+      const selectedId = selectedUser._id || selectedUser.id;
+      await messageAPI.deleteMessages(currentUserId, selectedId);
+      // Notify parent component to remove this user from list and clear selection
+      if (onDeleteChat) {
+        onDeleteChat(selectedId);
+      }
+      setShowDropdown(false);
+      alert('Conversation deleted successfully');
+    } catch (error) {
+      console.error('Error deleting conversation:', error);
+      alert('Failed to delete conversation');
+    }
+  };
+
   return (
-    <div className="chat-window">
-      <div className="chat-window-header">
-        <div className="chat-window-user-info">
-          <div className="chat-window-avatar">
-            {selectedUser.username.charAt(0).toUpperCase()}
+    <div className="chat-window-wrapper">
+      <div className="chat-window">
+        <div className="chat-window-header">
+          <div className="chat-window-user-info">
+            <div className="chat-window-avatar" onClick={() => setShowContactInfo(true)} style={{cursor: 'pointer'}}>
+              {selectedUser?.profilePicture ? (
+                <img src={selectedUser.profilePicture} alt="User" style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover' }} />
+              ) : (
+                selectedUser.username.charAt(0).toUpperCase()
+              )}
+            </div>
+            <div className="chat-window-user-details" onClick={() => setShowContactInfo(true)} style={{cursor: 'pointer'}}>
+              <h3>{selectedUser.username}</h3>
+              {isTyping ? (
+                <p className="typing-indicator">typing...</p>
+              ) : (
+                <p>{selectedUser.status === 'online' ? 'online' : 'offline'}</p>
+              )}
+            </div>
           </div>
-          <div className="chat-window-user-details">
-            <h3>{selectedUser.username}</h3>
-            {isTyping ? (
-              <p className="typing-indicator">typing...</p>
-            ) : (
-              <p>{selectedUser.status === 'online' ? 'online' : 'offline'}</p>
-            )}
-          </div>
-        </div>
-        <div className="chat-window-header-actions">
+          <div className="chat-window-header-actions">
           <button className="icon-button"><MdVideoCall size={26} /></button>
           <button className="icon-button"><MdCall size={22} /></button>
           <div className="divider"></div>
@@ -118,18 +167,15 @@ const ChatWindow = ({ selectedUser, messages, onSendMessage, currentUser, isTypi
             </button>
             {showDropdown && (
               <div className="chat-window-dropdown">
-                <div className="dropdown-item"><IoMdInformationCircleOutline className="menu-icon" /> Contact info</div>
-                <div className="dropdown-item"><MdOutlinePlaylistAddCheck className="menu-icon" /> Select messages</div>
-                <div className="dropdown-item"><MdNotificationsOff className="menu-icon" /> Mute notifications</div>
-                <div className="dropdown-item"><MdHistory className="menu-icon" /> Disappearing messages</div>
-                <div className="dropdown-item"><MdLockOutline className="menu-icon" /> Lock chat</div>
-                <div className="dropdown-item"><MdFavoriteBorder className="menu-icon" /> Add to favourites</div>
-                <div className="dropdown-item"><MdPlaylistAdd className="menu-icon" /> Add to list</div>
-                <div className="dropdown-item"><MdClose className="menu-icon" /> Close chat</div>
-                <div className="dropdown-item"><MdOutlineReport className="menu-icon" /> Report</div>
-                <div className="dropdown-item"><MdBlock className="menu-icon" /> Block</div>
-                <div className="dropdown-item"><AiOutlineClear className="menu-icon" /> Clear chat</div>
-                <div className="dropdown-item delete"><MdDeleteOutline className="menu-icon" /> Delete chat</div>
+                <div className="dropdown-item" onClick={handleContactInfo}>
+                  <IoMdInformationCircleOutline className="menu-icon" /> Contact info
+                </div>
+                <div className="dropdown-item" onClick={handleClearChat}>
+                  <AiOutlineClear className="menu-icon" /> Clear chat
+                </div>
+                <div className="dropdown-item delete" onClick={handleDeleteChat}>
+                  <MdDeleteOutline className="menu-icon" /> Delete chat
+                </div>
               </div>
             )}
           </div>
@@ -239,6 +285,49 @@ const ChatWindow = ({ selectedUser, messages, onSendMessage, currentUser, isTypi
             </button>
           )}
         </form>
+      )}
+      </div>
+
+      {showContactInfo && (
+        <div className="contact-info-sidepanel">
+          <div className="contact-drawer-header">
+            <div className="contact-drawer-header-content">
+              <button className="back-btn" onClick={() => setShowContactInfo(false)}>
+                <MdArrowBack size={24} />
+              </button>
+              <span>Profile</span>
+            </div>
+          </div>
+          <div className="contact-info-content">
+            <div className="contact-photo-section">
+              <div className="contact-photo-large view-only">
+                {selectedUser?.profilePicture ? (
+                  <img src={selectedUser.profilePicture} alt="Profile" />
+                ) : (
+                  selectedUser.username.charAt(0).toUpperCase()
+                )}
+              </div>
+            </div>
+            
+            <div className="contact-photo-name">
+              {selectedUser.username}
+            </div>
+
+            <div className="contact-info-section">
+              <label>About</label>
+              <div className="contact-info-row">
+                <div className="contact-info-text">Available</div>
+              </div>
+            </div>
+
+            <div className="contact-info-section">
+              <label>Phone number</label>
+              <div className="contact-info-row">
+                <div className="contact-info-text">{selectedUser.phoneNumber || selectedUser.email}</div>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

@@ -22,8 +22,8 @@ exports.sendMessage = async (req, res) => {
     await message.save();
 
     // Populate sender and receiver details
-    await message.populate('sender', 'username email');
-    await message.populate('receiver', 'username email');
+    await message.populate('sender', 'username email profilePicture');
+    await message.populate('receiver', 'username email profilePicture');
 
     res.status(201).json(message);
   } catch (error) {
@@ -45,8 +45,8 @@ exports.getMessages = async (req, res) => {
         { sender: receiverId, receiver: senderId }
       ]
     })
-      .populate('sender', 'username email')
-      .populate('receiver', 'username email')
+      .populate('sender', 'username email profilePicture')
+      .populate('receiver', 'username email profilePicture')
       .sort({ timestamp: 1 });
 
     res.json(messages);
@@ -57,6 +57,20 @@ exports.getMessages = async (req, res) => {
 
 exports.deleteMessage = async (req, res) => {
   try {
+    const { senderId, receiverId } = req.query;
+
+    // If query parameters are provided, delete all messages between two users
+    if (senderId && receiverId) {
+      const result = await Message.deleteMany({
+        $or: [
+          { sender: senderId, receiver: receiverId },
+          { sender: receiverId, receiver: senderId }
+        ]
+      });
+      return res.json({ message: `${result.deletedCount} messages deleted` });
+    }
+
+    // Otherwise, delete a single message by ID
     const message = await Message.findByIdAndDelete(req.params.id);
     if (!message) {
       return res.status(404).json({ error: 'Message not found' });

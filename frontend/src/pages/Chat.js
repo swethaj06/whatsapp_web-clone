@@ -138,11 +138,26 @@ const Chat = () => {
       }
     });
 
+    const handleProfileUpdate = ({ userId, profilePicture, username }) => {
+      setUsers(prev => prev.map(u => {
+        if ((u._id || u.id).toString() === userId.toString()) {
+          return { ...u, profilePicture: profilePicture || u.profilePicture, username: username || u.username };
+        }
+        return u;
+      }));
+      if (selectedUser && (selectedUser._id || selectedUser.id).toString() === userId.toString()) {
+        setSelectedUser(prev => ({ ...prev, profilePicture: profilePicture || prev.profilePicture, username: username || prev.username }));
+      }
+    };
+
+    socket.on('user_profile_update', handleProfileUpdate);
+
     return () => {
       socket.off('receive_message', handleReceiveMessage);
       socket.off('user_status_change', handleStatusChange);
       socket.off('user_typing');
       socket.off('user_stop_typing');
+      socket.off('user_profile_update', handleProfileUpdate);
     };
   }, [selectedUser, user, socket]);
 
@@ -163,6 +178,18 @@ const Chat = () => {
     } catch (error) {
       console.error('Error sending message:', error);
     }
+  };
+
+  const handleClearChat = (userId) => {
+    setMessages([]);
+  };
+
+  const handleDeleteChat = (userId) => {
+    // Remove user from the list
+    setUsers(prevUsers => prevUsers.filter(u => (u._id || u.id).toString() !== userId.toString()));
+    // Clear messages and selected user
+    setMessages([]);
+    setSelectedUser(null);
   };
 
   const handleLogout = () => {
@@ -188,6 +215,13 @@ const Chat = () => {
     reader.onloadend = async () => {
       try {
         await updateUserProfile({ profilePicture: reader.result });
+        if (socket) {
+          socket.emit('update_profile', {
+            userId: user._id || user.id,
+            profilePicture: reader.result,
+            username: user.username
+          });
+        }
       } catch (error) {
         console.error('Failed to update profile picture:', error);
       }
@@ -312,6 +346,9 @@ const Chat = () => {
             currentUser={user}
             isTyping={isTyping}
             socket={socket}
+            onClearChat={handleClearChat}
+            onDeleteChat={handleDeleteChat}
+            setMessages={setMessages}
           />
         ) : (
           <div className="empty-chat-state">

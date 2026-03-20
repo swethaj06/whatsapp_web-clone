@@ -37,7 +37,9 @@ export const messageAPI = {
   sendMessage: (messageData) => apiClient.post('/messages/send', messageData),
   getMessages: (senderId, receiverId) => 
     apiClient.get('/messages', { params: { senderId, receiverId } }),
-  deleteMessage: (messageId) => apiClient.delete(`/messages/${messageId}`)
+  deleteMessage: (messageId) => apiClient.delete(`/messages/${messageId}`),
+  deleteMessages: (senderId, receiverId) => 
+    apiClient.delete('/messages', { params: { senderId, receiverId } })
 };
 
 export default apiClient;

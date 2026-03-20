@@ -5,6 +5,7 @@ const router = express.Router();
 
 router.post('/send', messageController.sendMessage);
 router.get('/', messageController.getMessages);
-router.delete('/:id', messageController.deleteMessage);
+router.delete('/', messageController.deleteMessage); // For bulk deletion via query params
+router.delete('/:id', messageController.deleteMessage); // For single message deletion
 
 module.exports = router;

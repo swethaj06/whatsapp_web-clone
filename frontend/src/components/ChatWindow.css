@@ -1,3 +1,11 @@
+.chat-window-wrapper {
+  display: flex;
+  flex: 1;
+  height: 100%;
+  width: 100%;
+  overflow: hidden;
+}
+
 .chat-window {
   flex: 1;
   display: flex;
@@ -408,3 +416,208 @@
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
   border-radius: 8px;
 }
+
+.contact-info-sidepanel {
+  width: 400px;
+  background-color: #f0f2f5;
+  border-left: 1px solid #d1d7db;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  animation: slideInRight 0.3s cubic-bezier(0.1, 0.7, 1.0, 0.1);
+  box-shadow: -2px 0 5px rgba(0,0,0,0.05);
+  z-index: 20;
+}
+
+@keyframes slideInRight {
+  from { transform: translateX(100%); opacity: 0; }
+  to { transform: translateX(0); opacity: 1; }
+}
+
+.contact-info-header {
+  height: 60px;
+  background-color: #f0f2f5;
+  color: #111b21;
+  display: flex;
+  align-items: center;
+  padding: 0 20px;
+  flex-shrink: 0;
+  gap: 20px;
+  border-bottom: 1px solid #d1d7db;
+  font-size: 16px;
+  font-weight: 500;
+}
+
+.contact-info-header .back-btn {
+  color: #54656f;
+  margin-left: 0;
+}
+
+.contact-info-content {
+  flex: 1;
+  overflow-y: auto;
+  padding-bottom: 20px;
+}
+
+.contact-photo-section {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 28px 0;
+  background-color: #fff;
+  box-shadow: 0 1px 3px rgba(11, 20, 26, 0.08);
+  margin-bottom: 10px;
+}
+
+.contact-photo-large {
+  width: 200px;
+  height: 200px;
+  border-radius: 50%;
+  background-color: #dfe5e7;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 80px;
+  color: #41525d;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+  overflow: hidden;
+}
+
+.contact-photo-name {
+  text-align: center;
+  font-size: 24px;
+  padding-bottom: 20px;
+  background-color: #fff;
+  color: #111b21;
+}
+
+.contact-photo-number {
+  text-align: center;
+  font-size: 16px;
+  color: #667781;
+  padding-bottom: 20px;
+  background-color: #fff;
+  margin-top: -15px;
+  box-shadow: 0 1px 3px rgba(11, 20, 26, 0.08);
+  margin-bottom: 10px;
+}
+
+.contact-info-section {
+  background-color: #fff;
+  padding: 14px 30px;
+  margin-bottom: 10px;
+  box-shadow: 0 1px 3px rgba(11, 20, 26, 0.08);
+}
+
+.contact-info-section label {
+  font-size: 14px;
+  color: #008069;
+  display: block;
+  margin-bottom: 10px;
+  font-weight: 500;
+}
+
+.contact-info-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.contact-info-text {
+  font-size: 17px;
+  color: #111b21;
+}
+
+
+.contact-drawer-header {
+  height: 108px;
+  background-color: #008069;
+  color: #fff;
+  display: flex;
+  align-items: flex-end;
+  padding: 0 20px 20px;
+  flex-shrink: 0;
+}
+.contact-drawer-header-content {
+  display: flex;
+  align-items: center;
+  gap: 30px;
+  font-size: 19px;
+  font-weight: 500;
+}
+.contact-drawer-header .back-btn {
+  color: #fff;
+}
+
+
+.contact-photo-large {
+  position: relative;
+  cursor: pointer;
+}
+.contact-photo-large::after {
+  content: '+';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.4);
+  color: #fff;
+  font-size: 40px;
+  font-weight: 300;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+.contact-photo-large:hover::after {
+  opacity: 1;
+}
+.contact-photo-large img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 50%;
+}
+
+
+.contact-photo-large {
+  position: relative;
+  cursor: pointer;
+}
+.contact-photo-large::after {
+  content: '+';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.4);
+  color: #fff;
+  font-size: 40px;
+  font-weight: 300;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+.contact-photo-large:hover::after {
+  opacity: 1;
+}
+.contact-photo-large img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 50%;
+}
+
+
+.contact-photo-large.view-only {
+  cursor: default;
+}
+.contact-photo-large.view-only::after {
+  display: none !important;
+}
+

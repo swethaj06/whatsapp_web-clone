@@ -32,7 +32,8 @@ exports.signup = async (req, res) => {
       user: {
         id: user._id,
         username: user.username,
-        email: user.email
+        email: user.email,
+        profilePicture: user.profilePicture
       },
       token
     });
@@ -64,7 +65,7 @@ exports.login = async (req, res) => {
       user: {
         id: user._id,
         username: user.username,
-        email: user.email
+        email: user.email, profilePicture: user.profilePicture
       },
       token
     });
@@ -205,7 +206,7 @@ exports.verifyOtp = async (req, res) => {
       user: {
         id: user._id,
         username: user.username,
-        phoneNumber: user.phoneNumber
+        phoneNumber: user.phoneNumber, profilePicture: user.profilePicture, email: user.email
       },
       token
     });
