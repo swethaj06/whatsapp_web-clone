@@ -23,14 +23,6 @@ const userSchema = new mongoose.Schema({
     type: String,
     default: null
   },
-  otp: {
-    type: String,
-    default: null
-  },
-  otpExpiry: {
-    type: Date,
-    default: null
-  },
   profilePicture: {
     type: String,
     default: null
@@ -49,6 +41,5 @@ const userSchema = new mongoose.Schema({
 
 userSchema.index({ username: 1 });
 userSchema.index({ email: 1 });
-userSchema.index({ phoneNumber: 1 });
 
 module.exports = mongoose.model('User', userSchema);
