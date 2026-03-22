@@ -421,7 +421,12 @@ const ChatWindow = ({ selectedUser, messages, onSendMessage, currentUser, isTypi
               {isTyping ? (
                 <p className="typing-indicator">typing...</p>
               ) : (
-                <p>{selectedUser?.status && selectedUser.status === 'online' ? 'online' : 'offline'}</p>
+                <div className="presence-status">
+                  <span className={`presence-dot ${selectedUser?.status === 'online' ? 'online' : 'offline'}`}></span>
+                  <p className={`presence-text ${selectedUser?.status === 'online' ? 'online' : 'offline'}`}>
+                    {selectedUser?.status === 'online' ? 'Online' : 'Offline'}
+                  </p>
+                </div>
               )}
             </div>
           </div>
