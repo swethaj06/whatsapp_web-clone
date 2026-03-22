@@ -84,6 +84,7 @@ io.on('connection', async (socket) => {
   try { await ActivityLog.create({ socketId: socket.id, action: 'connected' }); } catch(e) {}
 
   socket.on('join', async (userId) => {
+    console.log('👤 USER JOINED - UserId:', userId, 'SocketId:', socket.id);
     socket.join(userId);
     socket.userId = userId; // Store userId on socket for disconnect handling
     try { await ActivityLog.create({ socketId: socket.id, userId, action: 'joined_room' }); } catch(e) {}
@@ -92,7 +93,7 @@ io.on('connection', async (socket) => {
     const User = require('./models/User');
     try {
       await User.findByIdAndUpdate(userId, { status: 'online' });
-      console.log(`User ${userId} marked as online`);
+      console.log(`✅ User ${userId} marked as online`);
       io.emit('user_status_change', { userId, status: 'online' });
     } catch (err) {
       console.error('Error updating status on join:', err);
@@ -116,6 +117,157 @@ io.on('connection', async (socket) => {
     const receiverId = data.receiver._id || data.receiver;
     const senderId = data.sender._id || data.sender;
     io.to(receiverId.toString()).to(senderId.toString()).emit('receive_message', data);
+  });
+
+  socket.on('call_user', async (data) => {
+    const targetUserId = data?.toUserId;
+    console.log('📞 CALL_USER EVENT - From:', data.fromUserId, 'To:', targetUserId, 'Type:', data.callType);
+    
+    if (!targetUserId) {
+      console.log('⚠️ No target user ID provided');
+      return;
+    }
+
+    try {
+      const Call = require('./models/Call');
+      const caller = data.fromUserId;
+      
+      // Create call record
+      const callRecord = await Call.create({
+        caller,
+        receiver: targetUserId,
+        callType: data.callType,
+        callStatus: 'no_answer',
+        startTime: new Date()
+      });
+      
+      console.log('✅ Call record created:', callRecord._id);
+
+      // Store call ID in socket for reference
+      socket.currentCallId = callRecord._id;
+      socket.callStartTime = Date.now();
+
+      // Send call initiated response to caller with callId
+      socket.emit('call_initiated', {
+        callId: callRecord._id
+      });
+      console.log('📤 Sent call_initiated to caller');
+
+      // Send incoming call to receiver with callId
+      console.log('📤 Sending incoming_call to room:', targetUserId.toString());
+      io.to(targetUserId.toString()).emit('incoming_call', {
+        callId: callRecord._id,
+        fromUserId: data.fromUserId,
+        fromUserName: data.fromUserName,
+        fromUserAvatar: data.fromUserAvatar || '',
+        callType: data.callType,
+        offer: data.offer
+      });
+      console.log('✅ Incoming call event sent to receiver');
+    } catch (err) {
+      console.error('❌ Error creating call record:', err);
+    }
+  });
+
+  socket.on('answer_call', async (data) => {
+    const targetUserId = data?.toUserId;
+    if (!targetUserId) return;
+
+    try {
+      const Call = require('./models/Call');
+      
+      // Update call record
+      if (data.callId) {
+        await Call.findByIdAndUpdate(data.callId, {
+          callStatus: 'accepted'
+        });
+      }
+
+      io.to(targetUserId.toString()).emit('call_answered', {
+        fromUserId: data.fromUserId,
+        answer: data.answer,
+        callType: data.callType
+      });
+    } catch (err) {
+      console.error('Error updating call record:', err);
+    }
+  });
+
+  socket.on('ice_candidate', (data) => {
+    const targetUserId = data?.toUserId;
+    if (!targetUserId) return;
+
+    io.to(targetUserId.toString()).emit('ice_candidate', {
+      fromUserId: data.fromUserId,
+      candidate: data.candidate
+    });
+  });
+
+  socket.on('reject_call', async (data) => {
+    const targetUserId = data?.toUserId;
+    if (!targetUserId) return;
+
+    try {
+      const Call = require('./models/Call');
+      const Message = require('./models/Message');
+      
+      const reason = data.reason || 'rejected';
+      const callStatus = reason === 'busy' ? 'rejected' : 'missed';
+
+      // Update call record
+      if (data.callId) {
+        const callRecord = await Call.findByIdAndUpdate(data.callId, {
+          callStatus,
+          endTime: new Date(),
+          duration: 0
+        }, { new: true });
+
+        // Create message for missed call
+        if (callRecord) {
+          await Message.create({
+            sender: callRecord.caller,
+            receiver: callRecord.receiver,
+            messageType: 'call',
+            callType: callRecord.callType,
+            callStatus: 'missed',
+            content: `Missed ${callRecord.callType} call`,
+            timestamp: new Date()
+          });
+        }
+      }
+
+      io.to(targetUserId.toString()).emit('call_rejected', {
+        fromUserId: data.fromUserId,
+        reason: data.reason || 'rejected'
+      });
+    } catch (err) {
+      console.error('Error handling call rejection:', err);
+    }
+  });
+
+  socket.on('end_call', async (data) => {
+    const targetUserId = data?.toUserId;
+    if (!targetUserId) return;
+
+    try {
+      const Call = require('./models/Call');
+      
+      // Update call record with duration
+      if (data.callId) {
+        await Call.findByIdAndUpdate(data.callId, {
+          callStatus: 'accepted',
+          endTime: new Date(),
+          duration: data.duration || 0
+        });
+      }
+
+      io.to(targetUserId.toString()).emit('call_ended', {
+        fromUserId: data.fromUserId,
+        reason: data.reason || 'ended'
+      });
+    } catch (err) {
+      console.error('Error handling call end:', err);
+    }
   });
 
   socket.on('disconnect', async () => {

@@ -1,6 +1,25 @@
 import React, { useState, useEffect, useRef } from 'react';
 import EmojiPicker from 'emoji-picker-react';
-import { MdCall, MdVideoCall, MdSearch, MdSend, MdMoreVert, MdDeleteOutline, MdClose, MdHistory, MdArrowBack, MdStar, MdStarBorder, MdOpenInNew, MdDownload } from 'react-icons/md';
+import {
+  MdCall,
+  MdVideoCall,
+  MdSearch,
+  MdSend,
+  MdMoreVert,
+  MdDeleteOutline,
+  MdClose,
+  MdHistory,
+  MdArrowBack,
+  MdStar,
+  MdStarBorder,
+  MdOpenInNew,
+  MdDownload,
+  MdCallEnd,
+  MdMic,
+  MdMicOff,
+  MdVideocam,
+  MdVideocamOff
+} from 'react-icons/md';
 import { BsEmojiSmile, BsPaperclip, BsMic, BsFillPlusCircleFill } from 'react-icons/bs';
 import { IoMdInformationCircleOutline } from 'react-icons/io';
 import { AiOutlineClear } from 'react-icons/ai';
@@ -10,6 +29,13 @@ import { messageAPI, normalizeFileUrl } from '../services/api';
 import ConfirmationModal from './ConfirmationModal';
 import NotificationModal from './NotificationModal';
 import './ChatWindow.css';
+
+const ICE_SERVERS = {
+  iceServers: [
+    { urls: 'stun:stun.l.google.com:19302' },
+    { urls: 'stun:stun1.l.google.com:19302' }
+  ]
+};
 
 const ChatWindow = ({ selectedUser, messages, onSendMessage, currentUser, isTyping, socket, onClearChat, onDeleteChat, setMessages }) => {
   const [messageText, setMessageText] = useState('');
@@ -23,6 +49,19 @@ const ChatWindow = ({ selectedUser, messages, onSendMessage, currentUser, isTypi
   const [showNotification, setShowNotification] = useState(false);
   const [notificationData, setNotificationData] = useState({ type: 'success', title: '', message: '' });
   const [isLoadingAction, setIsLoadingAction] = useState(false);
+  const [callState, setCallState] = useState({
+    isOpen: false,
+    isIncoming: false,
+    isConnected: false,
+    isMuted: false,
+    isVideoEnabled: true,
+    callType: 'audio',
+    status: '',
+    callerName: '',
+    callerAvatar: '',
+    callId: null,
+    callDuration: 0
+  });
   const [favourites, setFavourites] = useState(() => {
     try {
       return JSON.parse(localStorage.getItem('whatsapp_favourites')) || [];
@@ -30,11 +69,27 @@ const ChatWindow = ({ selectedUser, messages, onSendMessage, currentUser, isTypi
       return [];
     }
   });
+
   const typingTimeoutRef = useRef(null);
   const photoVideoInputRef = useRef(null);
   const audioInputRef = useRef(null);
   const documentInputRef = useRef(null);
   const objectUrlsRef = useRef(new Set());
+  const dropdownRef = useRef(null);
+  const attachmentRef = useRef(null);
+  const emojiRef = useRef(null);
+  const messagesEndRef = useRef(null);
+  const peerConnectionRef = useRef(null);
+  const localStreamRef = useRef(null);
+  const remoteStreamRef = useRef(null);
+  const pendingOfferRef = useRef(null);
+  const currentCallUserIdRef = useRef(null);
+  const localVideoRef = useRef(null);
+  const remoteVideoRef = useRef(null);
+  const callStartTimeRef = useRef(null);
+  const callTimeoutRef = useRef(null);
+  const callTimerRef = useRef(null);
+  const callStatusRef = useRef({ isOpen: false, isConnected: false, isIncoming: false });
 
   const toggleFavourite = (userId, e) => {
     e.stopPropagation();
@@ -59,14 +114,192 @@ const ChatWindow = ({ selectedUser, messages, onSendMessage, currentUser, isTypi
     };
   }, []);
 
+  const showCallNotification = (type, title, message) => {
+    setNotificationData({ type, title, message });
+    setShowNotification(true);
+  };
+
+  const cleanupPeerConnection = () => {
+    if (peerConnectionRef.current) {
+      peerConnectionRef.current.onicecandidate = null;
+      peerConnectionRef.current.ontrack = null;
+      peerConnectionRef.current.onconnectionstatechange = null;
+      peerConnectionRef.current.close();
+      peerConnectionRef.current = null;
+    }
+  };
+
+  const stopLocalMedia = () => {
+    if (localStreamRef.current) {
+      localStreamRef.current.getTracks().forEach((track) => track.stop());
+      localStreamRef.current = null;
+    }
+  };
+
+  const clearRemoteMedia = () => {
+    remoteStreamRef.current = null;
+    if (remoteVideoRef.current) {
+      remoteVideoRef.current.srcObject = null;
+    }
+  };
+
+  const resetCallState = () => {
+    cleanupPeerConnection();
+    stopLocalMedia();
+    clearRemoteMedia();
+    pendingOfferRef.current = null;
+    currentCallUserIdRef.current = null;
+    callStartTimeRef.current = null;
+    
+    // Clear call timeout and timer
+    if (callTimeoutRef.current) {
+      clearTimeout(callTimeoutRef.current);
+      callTimeoutRef.current = null;
+    }
+    if (callTimerRef.current) {
+      clearInterval(callTimerRef.current);
+      callTimerRef.current = null;
+    }
+    
+    if (localVideoRef.current) {
+      localVideoRef.current.srcObject = null;
+    }
+    
+    // Clear ref
+    callStatusRef.current = {
+      isOpen: false,
+      isConnected: false,
+      isIncoming: false
+    };
+    
+    setCallState({
+      isOpen: false,
+      isIncoming: false,
+      isConnected: false,
+      isMuted: false,
+      isVideoEnabled: true,
+      callType: 'audio',
+      status: '',
+      callerName: '',
+      callerAvatar: '',
+      callId: null,
+      callDuration: 0
+    });
+  };
+
   useEffect(() => {
     return () => {
       objectUrlsRef.current.forEach((url) => URL.revokeObjectURL(url));
       objectUrlsRef.current.clear();
+      resetCallState();
     };
   }, []);
 
-  // Handle typing events
+  useEffect(() => {
+    if (!localVideoRef.current) return;
+    localVideoRef.current.srcObject = localStreamRef.current || null;
+  }, [callState.isOpen, callState.isVideoEnabled]);
+
+  useEffect(() => {
+    if (!remoteVideoRef.current) return;
+    remoteVideoRef.current.srcObject = remoteStreamRef.current || null;
+  }, [callState.isOpen, callState.isConnected]);
+
+  const createPeerConnection = (targetUserId) => {
+    cleanupPeerConnection();
+
+    const peerConnection = new RTCPeerConnection(ICE_SERVERS);
+
+    peerConnection.onicecandidate = (event) => {
+      if (event.candidate && socket && targetUserId) {
+        socket.emit('ice_candidate', {
+          toUserId: targetUserId,
+          fromUserId: currentUser._id || currentUser.id,
+          candidate: event.candidate
+        });
+      }
+    };
+
+    peerConnection.ontrack = (event) => {
+      const [remoteStream] = event.streams;
+      if (remoteStream) {
+        remoteStreamRef.current = remoteStream;
+        if (remoteVideoRef.current) {
+          remoteVideoRef.current.srcObject = remoteStream;
+        }
+      }
+    };
+
+    peerConnection.onconnectionstatechange = () => {
+      const state = peerConnection.connectionState;
+
+      if (state === 'connected') {
+        setCallState((prev) => ({
+          ...prev,
+          isConnected: true,
+          status: 'Connected'
+        }));
+      }
+
+      if (['disconnected', 'failed', 'closed'].includes(state)) {
+        setCallState((prev) => ({
+          ...prev,
+          status: 'Call ended'
+        }));
+      }
+    };
+
+    peerConnectionRef.current = peerConnection;
+    currentCallUserIdRef.current = targetUserId;
+
+    return peerConnection;
+  };
+
+  const getMediaStream = async (callType) => {
+    try {
+      const constraints = {
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true
+        },
+        video: callType === 'video' ? {
+          width: { ideal: 1280 },
+          height: { ideal: 720 },
+          facingMode: 'user'
+        } : false
+      };
+
+      const stream = await navigator.mediaDevices.getUserMedia(constraints);
+      localStreamRef.current = stream;
+
+      if (localVideoRef.current) {
+        localVideoRef.current.srcObject = stream;
+      }
+
+      return stream;
+    } catch (error) {
+      console.error('Error getting media stream:', error);
+      let errorMessage = 'Unable to access microphone/camera';
+      
+      if (error.name === 'NotAllowedError') {
+        errorMessage = 'Permission denied. Please allow access to microphone/camera.';
+      } else if (error.name === 'NotFoundError') {
+        errorMessage = 'No microphone/camera found on this device.';
+      } else if (error.name === 'NotReadableError') {
+        errorMessage = 'Could not access microphone/camera. It may be in use by another application.';
+      }
+      
+      throw new Error(errorMessage);
+    }
+  };
+
+  const attachLocalTracks = (peerConnection, stream) => {
+    stream.getTracks().forEach((track) => {
+      peerConnection.addTrack(track, stream);
+    });
+  };
+
   useEffect(() => {
     if (!socket || !selectedUser) return;
 
@@ -96,10 +329,312 @@ const ChatWindow = ({ selectedUser, messages, onSendMessage, currentUser, isTypi
     };
   }, [messageText, socket, selectedUser, currentUser]);
 
-  const dropdownRef = useRef(null);
-  const attachmentRef = useRef(null);
-  const emojiRef = useRef(null);
-  const messagesEndRef = useRef(null);
+  useEffect(() => {
+    if (!socket) return undefined;
+
+    const handleIncomingCall = ({ callId, fromUserId, fromUserName, fromUserAvatar, callType, offer }) => {
+      console.log('📞 INCOMING CALL RECEIVED:', { fromUserName, callType, callId });
+      
+      // Only reject if already on a call, not based on selected user
+      if (callStatusRef.current.isOpen && callStatusRef.current.isConnected) {
+        console.log('❌ Rejecting call - already on a call');
+        socket.emit('reject_call', {
+          toUserId: fromUserId,
+          fromUserId: currentUser._id || currentUser.id,
+          callId,
+          reason: 'busy'
+        });
+        return;
+      }
+
+      console.log('✅ Accepting incoming call, setting call state...');
+      pendingOfferRef.current = offer;
+      currentCallUserIdRef.current = fromUserId;
+      callStartTimeRef.current = Date.now();
+      
+      setCallState({
+        isOpen: true,
+        isIncoming: true,
+        isConnected: false,
+        isMuted: false,
+        isVideoEnabled: callType === 'video',
+        callType,
+        status: callType === 'video' ? 'Incoming video call' : 'Incoming audio call',
+        callerName: fromUserName || 'Unknown User',
+        callerAvatar: fromUserAvatar || '',
+        callId
+      });
+      
+      // Update ref immediately so setTimeout uses correct state
+      callStatusRef.current = {
+        isOpen: true,
+        isIncoming: true,
+        isConnected: false
+      };
+
+      // Set timeout for missed call (45 seconds)
+      callTimeoutRef.current = setTimeout(() => {
+        console.log('⏱️ Call timeout check - current status:', callStatusRef.current);
+        if (callStatusRef.current.isOpen && callStatusRef.current.isIncoming && !callStatusRef.current.isConnected) {
+          console.log('📵 Call missed - rejecting...');
+          socket.emit('reject_call', {
+            toUserId: fromUserId,
+            fromUserId: currentUser._id || currentUser.id,
+            callId,
+            reason: 'no_answer'
+          });
+          resetCallState();
+          showCallNotification('info', 'CALL MISSED', `Missed ${callType} call from ${fromUserName}`);
+        } else {
+          console.log('✅ Call was answered before timeout');
+        }
+      }, 45000);
+    };
+
+    const handleCallAnswered = async ({ fromUserId, answer }) => {
+      console.log('📞 Call answered:', { fromUserId });
+      if (!peerConnectionRef.current || currentCallUserIdRef.current?.toString() !== fromUserId.toString()) {
+        return;
+      }
+
+      try {
+        // Clear the timeout if exists
+        if (callTimeoutRef.current) {
+          clearTimeout(callTimeoutRef.current);
+          callTimeoutRef.current = null;
+        }
+
+        await peerConnectionRef.current.setRemoteDescription(new RTCSessionDescription(answer));
+        callStartTimeRef.current = Date.now();
+        
+        setCallState((prev) => ({
+          ...prev,
+          status: 'Connected',
+          isConnected: true,
+          isIncoming: false,
+          callDuration: 0
+        }));
+        
+        // Update ref immediately
+        callStatusRef.current.isConnected = true;
+        callStatusRef.current.isIncoming = false;
+
+        // Start call duration timer
+        callTimerRef.current = setInterval(() => {
+          setCallState((prev) => ({
+            ...prev,
+            callDuration: Math.floor((Date.now() - callStartTimeRef.current) / 1000)
+          }));
+        }, 1000);
+      } catch (error) {
+        console.error('Error applying remote answer:', error);
+        showCallNotification('error', 'CALL FAILED', 'Could not connect the call.');
+        resetCallState();
+      }
+    };
+
+    const handleIceCandidate = async ({ fromUserId, candidate }) => {
+      if (!peerConnectionRef.current || !candidate || currentCallUserIdRef.current?.toString() !== fromUserId.toString()) {
+        return;
+      }
+
+      try {
+        await peerConnectionRef.current.addIceCandidate(new RTCIceCandidate(candidate));
+      } catch (error) {
+        console.error('Error adding ICE candidate:', error);
+      }
+    };
+
+    const handleCallRejected = ({ reason }) => {
+      const message = reason === 'busy' ? 'User is busy on another call.' : 'Call was rejected or missed.';
+      showCallNotification('info', 'CALL ENDED', message);
+      resetCallState();
+    };
+
+    const handleCallEnded = () => {
+      showCallNotification('success', 'CALL ENDED', 'The call has ended.');
+      resetCallState();
+    };
+
+    socket.on('incoming_call', handleIncomingCall);
+    socket.on('call_answered', handleCallAnswered);
+    socket.on('ice_candidate', handleIceCandidate);
+    socket.on('call_rejected', handleCallRejected);
+    socket.on('call_ended', handleCallEnded);
+
+    return () => {
+      socket.off('incoming_call', handleIncomingCall);
+      socket.off('call_answered', handleCallAnswered);
+      socket.off('ice_candidate', handleIceCandidate);
+      socket.off('call_rejected', handleCallRejected);
+      socket.off('call_ended', handleCallEnded);
+    };
+  }, [socket, currentUser]);
+
+  const startCall = async (callType) => {
+    if (!socket || !selectedUser) return;
+
+    const targetUserId = selectedUser._id || selectedUser.id;
+
+    try {
+      const stream = await getMediaStream(callType);
+      const peerConnection = createPeerConnection(targetUserId);
+
+      attachLocalTracks(peerConnection, stream);
+
+      const offer = await peerConnection.createOffer();
+      await peerConnection.setLocalDescription(offer);
+
+      callStartTimeRef.current = Date.now();
+      let callId = null;
+
+      // Wait for call_initiated response with callId
+      socket.once('call_initiated', ({ callId: receivedCallId }) => {
+        callId = receivedCallId;
+        setCallState((prev) => ({
+          ...prev,
+          callId: receivedCallId
+        }));
+      });
+
+      setCallState({
+        isOpen: true,
+        isIncoming: false,
+        isConnected: false,
+        isMuted: false,
+        isVideoEnabled: callType === 'video',
+        callType,
+        status: callType === 'video' ? 'Calling...' : 'Calling...',
+        callerName: selectedUser.username,
+        callerAvatar: selectedUser.profilePicture || '',
+        callId: null
+      });
+      
+      // Update ref immediately
+      callStatusRef.current = {
+        isOpen: true,
+        isIncoming: false,
+        isConnected: false
+      };
+
+      socket.emit('call_user', {
+        toUserId: targetUserId,
+        fromUserId: currentUser._id || currentUser.id,
+        fromUserName: currentUser.username,
+        fromUserAvatar: currentUser.profilePicture || '',
+        callType,
+        offer
+      });
+
+      // Set timeout for no answer (45 seconds)
+      callTimeoutRef.current = setTimeout(() => {
+        if (callStatusRef.current.isOpen && !callStatusRef.current.isConnected && !callStatusRef.current.isIncoming) {
+          socket.emit('end_call', {
+            toUserId: targetUserId,
+            fromUserId: currentUser._id || currentUser.id,
+            callId,
+            duration: 0,
+            reason: 'no_answer'
+          });
+          resetCallState();
+          showCallNotification('info', 'NO ANSWER', 'The call went unanswered.');
+        }
+      }, 45000);
+    } catch (error) {
+      console.error(`Error starting ${callType} call:`, error);
+      const errorMessage = error.message || `Unable to start ${callType} call. Please allow microphone/camera access.`;
+      showCallNotification('error', 'CALL FAILED', errorMessage);
+      resetCallState();
+    }
+  };
+
+  const answerIncomingCall = async () => {
+    if (!socket || !pendingOfferRef.current || !currentCallUserIdRef.current) return;
+
+    try {
+      const stream = await getMediaStream(callState.callType);
+      const peerConnection = createPeerConnection(currentCallUserIdRef.current);
+
+      attachLocalTracks(peerConnection, stream);
+
+      await peerConnection.setRemoteDescription(new RTCSessionDescription(pendingOfferRef.current));
+      const answer = await peerConnection.createAnswer();
+      await peerConnection.setLocalDescription(answer);
+
+      socket.emit('answer_call', {
+        toUserId: currentCallUserIdRef.current,
+        fromUserId: currentUser._id || currentUser.id,
+        callId: callState.callId,
+        answer,
+        callType: callState.callType
+      });
+
+      setCallState((prev) => ({
+        ...prev,
+        isIncoming: false,
+        isConnected: true,
+        status: 'Connected'
+      }));
+    } catch (error) {
+      console.error('Error answering call:', error);
+      const errorMessage = error.message || 'Unable to answer the call.';
+      showCallNotification('error', 'CALL FAILED', errorMessage);
+      rejectIncomingCall('failed');
+    }
+  };
+
+  const rejectIncomingCall = (reason = 'rejected') => {
+    if (socket && currentCallUserIdRef.current) {
+      socket.emit('reject_call', {
+        toUserId: currentCallUserIdRef.current,
+        fromUserId: currentUser._id || currentUser.id,
+        callId: callState.callId,
+        reason
+      });
+    }
+    resetCallState();
+  };
+
+  const endCall = () => {
+    if (socket && currentCallUserIdRef.current) {
+      socket.emit('end_call', {
+        toUserId: currentCallUserIdRef.current,
+        fromUserId: currentUser._id || currentUser.id,
+        callId: callState.callId,
+        duration: callState.callDuration,
+        reason: 'ended'
+      });
+    }
+    resetCallState();
+  };
+
+  const toggleMute = () => {
+    if (!localStreamRef.current) return;
+
+    const nextMuted = !callState.isMuted;
+    localStreamRef.current.getAudioTracks().forEach((track) => {
+      track.enabled = !nextMuted;
+    });
+
+    setCallState((prev) => ({
+      ...prev,
+      isMuted: nextMuted
+    }));
+  };
+
+  const toggleVideo = () => {
+    if (callState.callType !== 'video' || !localStreamRef.current) return;
+
+    const nextVideoEnabled = !callState.isVideoEnabled;
+    localStreamRef.current.getVideoTracks().forEach((track) => {
+      track.enabled = nextVideoEnabled;
+    });
+
+    setCallState((prev) => ({
+      ...prev,
+      isVideoEnabled: nextVideoEnabled
+    }));
+  };
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -275,6 +810,7 @@ const ChatWindow = ({ selectedUser, messages, onSendMessage, currentUser, isTypi
       const selectedId = selectedUser._id || selectedUser.id;
       await messageAPI.deleteMessages(currentUserId, selectedId);
       if (setMessages) setMessages([]);
+      if (onClearChat) onClearChat();
       setShowDropdown(false);
       setShowClearConfirmation(false);
       setNotificationData({
@@ -366,15 +902,25 @@ const ChatWindow = ({ selectedUser, messages, onSendMessage, currentUser, isTypi
       );
     }
 
-    if (msg.messageType === 'audio') {
+    if (msg.messageType === 'audio' || msg.messageType === 'voice') {
       return (
         <div className="audio-preview">
-          <div className="audio-filename">{displayFileName}</div>
-          <audio controls className="message-audio">
+          {msg.messageType !== 'voice' && <div className="audio-filename">{displayFileName}</div>}
+          {msg.messageType === 'voice' && <div className="voice-duration" style={{fontSize: '0.8rem', color: '#667781', marginBottom: '4px'}}>Voice message • {msg.fileDuration ? msg.fileDuration + "s" : ""}</div>}
+          <audio controls preload="metadata" className="message-audio">
             <source src={fileUrl} />
             Your browser does not support the audio element.
           </audio>
-          <div className="document-preview">
+        </div>
+      );
+    }
+
+    return (
+      <div className="document-preview">
+        <FaFileLines size={24} className="document-icon" />
+        <div className="document-info">
+          <div className="document-filename">{displayFileName}</div>
+          <div className="document-actions">
             <a href={fileUrl} target="_blank" rel="noreferrer" className="document-link">
               <MdOpenInNew size={16} /> Open
             </a>
@@ -383,22 +929,33 @@ const ChatWindow = ({ selectedUser, messages, onSendMessage, currentUser, isTypi
             </a>
           </div>
         </div>
-      );
-    }
+      </div>
+    );
+  };
 
+  const renderCallMessage = (msg) => {
+    const isMissed = msg.callStatus === 'missed';
+    const callTypeLabel = msg.callType === 'video' ? 'Video call' : 'Audio call';
+    const isOutgoing = (msg.sender._id || msg.sender).toString() === (currentUser._id || currentUser.id).toString();
+    
     return (
-      <div className="document-preview">
-        <a href={fileUrl} target="_blank" rel="noreferrer" className="document-link">
-          📄 {displayFileName}
-        </a>
-        <span className="file-size">{msg.fileSize ? `(${formatFileSize(msg.fileSize)})` : ''}</span>
-        <div className="document-preview">
-          <a href={fileUrl} target="_blank" rel="noreferrer" className="document-link">
-            <MdOpenInNew size={16} /> Open
-          </a>
-          <a href={fileUrl} download={displayFileName} className="document-link">
-            <MdDownload size={16} /> Download
-          </a>
+      <div className={`call-message ${isMissed ? 'missed' : 'completed'}`}>
+        <div className="call-message-icon">
+          {msg.callType === 'video' ? <MdVideoCall size={20} /> : <MdCall size={20} />}
+        </div>
+        <div className="call-message-content">
+          <div className="call-message-type">
+            {isMissed ? (
+              <span className="call-status-missed">Missed {callTypeLabel}</span>
+            ) : (
+              <span className="call-status-completed">{callTypeLabel}</span>
+            )}
+          </div>
+          {msg.callDuration && msg.callDuration > 0 && (
+            <div className="call-message-duration">
+              {Math.floor(msg.callDuration / 60)}:{String(msg.callDuration % 60).padStart(2, '0')}
+            </div>
+          )}
         </div>
       </div>
     );
@@ -431,8 +988,12 @@ const ChatWindow = ({ selectedUser, messages, onSendMessage, currentUser, isTypi
             </div>
           </div>
           <div className="chat-window-header-actions">
-            <button className="icon-button"><MdVideoCall size={26} /></button>
-            <button className="icon-button"><MdCall size={22} /></button>
+            <button className="icon-button" onClick={() => startCall('video')} title="Video call">
+              <MdVideoCall size={26} />
+            </button>
+            <button className="icon-button" onClick={() => startCall('audio')} title="Audio call">
+              <MdCall size={22} />
+            </button>
             <div className="divider"></div>
             <button className="icon-button"><MdSearch size={22} /></button>
             <div className="dropdown-wrapper" ref={dropdownRef}>
@@ -478,7 +1039,11 @@ const ChatWindow = ({ selectedUser, messages, onSendMessage, currentUser, isTypi
                 className={`message ${(msg.sender._id || msg.sender).toString() === (currentUser._id || currentUser.id).toString() ? 'sent' : 'received'}`}
               >
                 <div className="message-content">
-                  {msg.messageType && msg.messageType !== 'text' ? (
+                  {msg.messageType === 'call' ? (
+                    <div className="call-message-wrapper">
+                      {renderCallMessage(msg)}
+                    </div>
+                  ) : msg.messageType && msg.messageType !== 'text' ? (
                     <div className={`attachment-message attachment-${msg.messageType}`}>
                       {renderAttachmentMessage(msg)}
                     </div>
@@ -507,6 +1072,91 @@ const ChatWindow = ({ selectedUser, messages, onSendMessage, currentUser, isTypi
           )}
           <div ref={messagesEndRef} />
         </div>
+
+        {callState.isOpen && (
+          <div className="call-overlay">
+            <div className={`call-modal ${callState.callType === 'video' ? 'video' : 'audio'}`}>
+              <div className="call-modal-header">
+                <div className="call-user-meta">
+                  <div className="call-avatar">
+                    {callState.callerAvatar ? (
+                      <img src={callState.callerAvatar} alt={callState.callerName} />
+                    ) : (
+                      <span>{(callState.callerName || selectedUser?.username || '?').charAt(0).toUpperCase()}</span>
+                    )}
+                  </div>
+                  <div>
+                    <h3>{callState.callerName || selectedUser?.username}</h3>
+                    <p>{callState.status}</p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="call-media-area">
+                {callState.callType === 'video' ? (
+                  <>
+                    <video
+                      ref={remoteVideoRef}
+                      className="remote-video"
+                      autoPlay
+                      playsInline
+                    />
+                    <video
+                      ref={localVideoRef}
+                      className="local-video"
+                      autoPlay
+                      muted
+                      playsInline
+                    />
+                    {!callState.isConnected && (
+                      <div className="call-waiting-badge">
+                        {callState.isIncoming ? 'Waiting for answer' : 'Ringing...'}
+                      </div>
+                    )}
+                  </>
+                ) : (
+                  <div className="audio-call-visual">
+                    <div className="audio-call-avatar">
+                      {callState.callerAvatar ? (
+                        <img src={callState.callerAvatar} alt={callState.callerName} />
+                      ) : (
+                        <span>{(callState.callerName || selectedUser?.username || '?').charAt(0).toUpperCase()}</span>
+                      )}
+                    </div>
+                    <p className="audio-call-label">{callState.status}</p>
+                  </div>
+                )}
+              </div>
+
+              <div className="call-controls">
+                {callState.isIncoming ? (
+                  <>
+                    <button className="call-control-button reject" onClick={() => rejectIncomingCall()}>
+                      <MdCallEnd size={24} />
+                    </button>
+                    <button className="call-control-button accept" onClick={answerIncomingCall}>
+                      {callState.callType === 'video' ? <MdVideocam size={24} /> : <MdCall size={24} />}
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <button className="call-control-button secondary" onClick={toggleMute}>
+                      {callState.isMuted ? <MdMicOff size={22} /> : <MdMic size={22} />}
+                    </button>
+                    {callState.callType === 'video' && (
+                      <button className="call-control-button secondary" onClick={toggleVideo}>
+                        {callState.isVideoEnabled ? <MdVideocam size={22} /> : <MdVideocamOff size={22} />}
+                      </button>
+                    )}
+                    <button className="call-control-button reject" onClick={endCall}>
+                      <MdCallEnd size={24} />
+                    </button>
+                  </>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
 
         {isRecording ? (
           <div className="voice-recording-container">
