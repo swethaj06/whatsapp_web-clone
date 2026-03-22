@@ -136,9 +136,6 @@ const ChatList = ({ users, currentUser, selectedUser, onSelectUser, onLogout, on
                 <div className="chat-item-content">
                   <div className="chat-item-name-row">
                     <div className="chat-item-name">{u.username}</div>
-                    <div className={`chat-item-status ${u?.status === 'online' ? 'online' : 'offline'}`}>
-                      {u?.status === 'online' ? 'Online' : 'Offline'}
-                    </div>
                   </div>
                   <div className="chat-item-preview">{u.lastMessage || 'Hey there! I am using WhatsApp.'}</div>
                 </div>
