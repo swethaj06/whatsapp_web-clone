@@ -118,11 +118,13 @@ const normalizeMessagePayload = async (req, body, file = null) => {
 };
 
 const saveAndPopulateMessage = async (messageData) => {
-  const message = new Message(messageData);
-  await message.save();
-  await message.populate('sender', 'username email profilePicture');
-  await message.populate('receiver', 'username email profilePicture');
-  return message;
+  const message = await Message.create(messageData);
+
+  const populatedMessage = await Message.findById(message._id)
+    .populate('sender', 'username email profilePicture')
+    .populate('receiver', 'username email profilePicture');
+
+  return populatedMessage || message;
 };
 
 exports.uploadAttachment = upload.single('attachment');
@@ -147,7 +149,8 @@ exports.sendMessage = async (req, res) => {
       fs.unlinkSync(req.file.path);
     }
 
-    res.status(500).json({ error: error.message });
+    console.error('sendMessage error:', error);
+    res.status(500).json({ error: error.message || 'Failed to send message' });
   }
 };
 

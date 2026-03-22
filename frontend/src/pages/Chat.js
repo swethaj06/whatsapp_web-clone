@@ -21,6 +21,7 @@ const Chat = () => {
   const [isTyping, setIsTyping] = useState(false);
   const [showProfile, setShowProfile] = useState(false);
   const fileInputRef = useRef(null);
+  const selectedUserRef = useRef(null);
 
   useEffect(() => {
     if (!user) {
@@ -63,6 +64,10 @@ const Chat = () => {
   }, [user, navigate]);
 
   useEffect(() => {
+    selectedUserRef.current = selectedUser;
+  }, [selectedUser]);
+
+  useEffect(() => {
     if (!selectedUser || !socket) return;
 
     const fetchMessages = async () => {
@@ -77,12 +82,17 @@ const Chat = () => {
     };
 
     fetchMessages();
+  }, [selectedUser, user, socket]);
+
+  useEffect(() => {
+    if (!socket || !user) return;
 
     const handleReceiveMessage = (data) => {
-      const msgSenderId = (data.sender._id || data.sender).toString();
-      const msgReceiverId = (data.receiver._id || data.receiver).toString();
+      const msgSenderId = (data.sender?._id || data.sender).toString();
+      const msgReceiverId = (data.receiver?._id || data.receiver).toString();
       const currentUserId = (user._id || user.id).toString();
-      const selectedId = selectedUser ? (selectedUser._id || selectedUser.id).toString() : null;
+      const activeSelectedUser = selectedUserRef.current;
+      const selectedId = activeSelectedUser ? (activeSelectedUser._id || activeSelectedUser.id).toString() : null;
 
       if (
         selectedId &&
@@ -92,7 +102,7 @@ const Chat = () => {
         setMessages(prev => {
           const exists = prev.some(m => (m._id || m.id).toString() === (data._id || data.id).toString());
           if (exists) return prev;
-          return [...prev, data];
+          return [...prev.filter(m => !m.isOptimistic), data];
         });
       }
 
@@ -104,7 +114,7 @@ const Chat = () => {
             ...u,
             lastMessage: data.messageType && data.messageType !== 'text' ? (data.fileName || data.content || 'Attachment') : data.content,
             lastMessageTime: new Date(data.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-            unreadCount: (uId === msgSenderId && selectedId !== uId) ? (u.unreadCount || 0) + 1 : (u.unreadCount || 0)
+            unreadCount: (uId === msgSenderId && selectedId !== uId) ? (u.unreadCount || 0) + 1 : 0
           };
         }
         return u;
@@ -188,24 +198,47 @@ const Chat = () => {
       socket.off('user_profile_update', handleProfileUpdate);
       socket.off('new_user', handleNewUser);
     };
-  }, [selectedUser, user, socket]);
+  }, [user, socket]);
 
   const handleSendMessage = async (content) => {
-    if (!content.trim() || !selectedUser) return;
+    const trimmedContent = content.trim();
+    if (!trimmedContent || !selectedUser) return;
+
+    const currentUserId = user._id || user.id;
+    const selectedId = selectedUser._id || selectedUser.id;
+    const optimisticId = `temp_text_${Date.now()}`;
+
+    const optimisticMessage = {
+      _id: optimisticId,
+      sender: currentUserId,
+      receiver: selectedId,
+      content: trimmedContent,
+      messageType: 'text',
+      timestamp: new Date(),
+      isOptimistic: true
+    };
+
+    setMessages(prev => [...prev, optimisticMessage]);
+
     try {
-      const currentUserId = user._id || user.id;
-      const selectedId = selectedUser._id || selectedUser.id;
       const messageData = {
         sender: currentUserId,
         receiver: selectedId,
-        content
+        content: trimmedContent
       };
       const response = await messageAPI.sendMessage(messageData);
+
+      setMessages(prev =>
+        prev.map(message => message._id === optimisticId ? response.data : message)
+      );
+
       if (socket) {
         socket.emit('send_message', response.data);
       }
     } catch (error) {
+      setMessages(prev => prev.filter(message => message._id !== optimisticId));
       console.error('Error sending message:', error);
+      toast.error('Failed to send message');
     }
   };
 

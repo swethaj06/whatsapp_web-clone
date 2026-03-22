@@ -726,6 +726,20 @@ const ChatWindow = ({ selectedUser, messages, onSendMessage, currentUser, isTypi
     const resolvedType = requestedType === 'auto' ? getAttachmentType(file) : requestedType;
     const optimisticId = `temp_${Date.now()}_${file.name}`;
     const objectUrl = createObjectUrl(file);
+    const maxFileSize = 25 * 1024 * 1024;
+
+    if (file.size > maxFileSize) {
+      cleanupObjectUrl(objectUrl);
+      resetInputValue(inputRef);
+      setShowAttachments(false);
+      setNotificationData({
+        type: 'error',
+        title: 'FILE TOO LARGE',
+        message: 'Attachments must be 25 MB or smaller.'
+      });
+      setShowNotification(true);
+      return;
+    }
 
     try {
       const optimisticMessage = {
@@ -774,7 +788,7 @@ const ChatWindow = ({ selectedUser, messages, onSendMessage, currentUser, isTypi
       setNotificationData({
         type: 'error',
         title: 'UPLOAD FAILED',
-        message: `Failed to send ${resolvedType}. Please try again.`
+        message: error?.response?.data?.error || `Failed to send ${resolvedType}. Please try again.`
       });
       setShowNotification(true);
     } finally {
@@ -1223,7 +1237,7 @@ const ChatWindow = ({ selectedUser, messages, onSendMessage, currentUser, isTypi
                 type="file"
                 ref={documentInputRef}
                 onChange={(e) => handleAttachmentSelect('document', e.target.files?.[0], documentInputRef)}
-                accept=".pdf,.doc,.docx,.txt,.xls,.xlsx"
+                accept=".pdf,.doc,.docx,.txt,.xls,.xlsx,.ppt,.pptx,.zip,.rar,.csv,application/*"
                 style={{ display: 'none' }}
               />
             </div>

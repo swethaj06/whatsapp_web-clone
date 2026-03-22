@@ -19,19 +19,19 @@ const messageSchema = new mongoose.Schema({
   },
   messageType: {
     type: String,
-    enum: ['text', 'image', 'video', 'audio', 'document', 'location', 'sticker', 'call'],
+    enum: ['text', 'image', 'video', 'audio', 'voice', 'document', 'location', 'sticker', 'call'],
     default: 'text'
   },
   // Call-specific fields
   callType: {
     type: String,
     enum: ['audio', 'video'],
-    default: null
+    default: undefined
   },
   callStatus: {
     type: String,
     enum: ['missed', 'accepted', 'rejected'],
-    default: null
+    default: undefined
   },
   callDuration: {
     type: Number, // in seconds
