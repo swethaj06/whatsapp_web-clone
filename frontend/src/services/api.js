@@ -1,6 +1,7 @@
 import axios from 'axios';
 
 const API_URL = 'http://localhost:5000/api';
+const BASE_SERVER_URL = API_URL.replace(/\/api$/, '');
 
 const apiClient = axios.create({
   baseURL: API_URL,
@@ -16,12 +17,25 @@ apiClient.interceptors.request.use(
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
+
+    if (config.data instanceof FormData) {
+      delete config.headers['Content-Type'];
+    }
+
     return config;
   },
   (error) => {
     return Promise.reject(error);
   }
 );
+
+export const normalizeFileUrl = (fileUrl) => {
+  if (!fileUrl) return '';
+  if (fileUrl.startsWith('data:') || fileUrl.startsWith('blob:')) return fileUrl;
+  if (/^https?:\/\//i.test(fileUrl)) return fileUrl;
+  if (fileUrl.startsWith('/')) return `${BASE_SERVER_URL}${fileUrl}`;
+  return `${BASE_SERVER_URL}/${fileUrl}`;
+};
 
 // User APIs
 export const userAPI = {
@@ -35,10 +49,11 @@ export const userAPI = {
 // Message APIs
 export const messageAPI = {
   sendMessage: (messageData) => apiClient.post('/messages/send', messageData),
-  getMessages: (senderId, receiverId) => 
+  sendAttachment: (attachmentData) => apiClient.post('/messages/send-attachment', attachmentData),
+  getMessages: (senderId, receiverId) =>
     apiClient.get('/messages', { params: { senderId, receiverId } }),
   deleteMessage: (messageId) => apiClient.delete(`/messages/${messageId}`),
-  deleteMessages: (senderId, receiverId) => 
+  deleteMessages: (senderId, receiverId) =>
     apiClient.delete('/messages', { params: { senderId, receiverId } })
 };
 

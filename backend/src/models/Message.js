@@ -34,6 +34,14 @@ const messageSchema = new mongoose.Schema({
     type: Number,
     default: null
   },
+  fileMimeType: {
+    type: String,
+    default: null
+  },
+  storedFileName: {
+    type: String,
+    default: null
+  },
   timestamp: {
     type: Date,
     default: Date.now,
@@ -44,10 +52,9 @@ const messageSchema = new mongoose.Schema({
     default: false
   }
 }, {
-  timestamps: true // Adds createdAt and updatedAt automatically
+  timestamps: true
 });
 
-// Compound index for efficient chat history fetching
 messageSchema.index({ sender: 1, receiver: 1, timestamp: 1 });
 messageSchema.index({ receiver: 1, sender: 1, timestamp: 1 });
 

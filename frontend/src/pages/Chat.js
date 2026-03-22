@@ -85,9 +85,9 @@ const Chat = () => {
       const selectedId = selectedUser ? (selectedUser._id || selectedUser.id).toString() : null;
 
       if (
-        selectedId && 
+        selectedId &&
         ((msgSenderId === currentUserId && msgReceiverId === selectedId) ||
-         (msgSenderId === selectedId && msgReceiverId === currentUserId))
+          (msgSenderId === selectedId && msgReceiverId === currentUserId))
       ) {
         setMessages(prev => {
           const exists = prev.some(m => (m._id || m.id).toString() === (data._id || data.id).toString());
@@ -99,10 +99,10 @@ const Chat = () => {
       setUsers(prevUsers => prevUsers.map(u => {
         const uId = (u._id || u.id).toString();
         if (uId === msgSenderId || uId === msgReceiverId) {
-          if (uId === currentUserId) return u; 
+          if (uId === currentUserId) return u;
           return {
             ...u,
-            lastMessage: data.content,
+            lastMessage: data.messageType && data.messageType !== 'text' ? (data.fileName || data.content || 'Attachment') : data.content,
             lastMessageTime: new Date(data.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
             unreadCount: (uId === msgSenderId && selectedId !== uId) ? (u.unreadCount || 0) + 1 : (u.unreadCount || 0)
           };
@@ -160,7 +160,6 @@ const Chat = () => {
           return prev;
         }
 
-        // Show a professional toast notification when a new user joins
         toast(`${newUser.username} is on your contact. You can search and message them!`, {
           icon: '👋',
           style: {
@@ -210,21 +209,18 @@ const Chat = () => {
     }
   };
 
-  const handleClearChat = (userId) => {
+  const handleClearChat = () => {
     setMessages([]);
   };
 
   const handleDeleteChat = (userId) => {
-    // Remove user from the list
     setUsers(prevUsers => prevUsers.filter(u => (u._id || u.id).toString() !== userId.toString()));
-    // Clear messages and selected user
     setMessages([]);
     setSelectedUser(null);
   };
 
   const handleSelectUser = (userToSelect) => {
     setSelectedUser(userToSelect);
-    // Clear unread count for this user
     setUsers(prev => prev.map(u => {
       if ((u._id || u.id).toString() === (userToSelect._id || userToSelect.id).toString()) {
         return { ...u, unreadCount: 0 };
@@ -299,11 +295,11 @@ const Chat = () => {
         <div className="sidebar-bottom">
           <div className="sidebar-icon" title="Settings"><MdSettings size={24} /></div>
           <div className={`sidebar-icon profile-icon ${showProfile ? 'active-icon' : ''}`} onClick={() => setShowProfile(true)} title="Profile">
-             {user?.profilePicture ? (
-               <img src={user.profilePicture} alt="S" style={{ width: '30px', height: '30px', borderRadius: '50%', objectFit: 'cover' }} />
-             ) : (
-               user?.username ? user.username.charAt(0).toUpperCase() : '?'
-             )}
+            {user?.profilePicture ? (
+              <img src={user.profilePicture} alt="S" style={{ width: '30px', height: '30px', borderRadius: '50%', objectFit: 'cover' }} />
+            ) : (
+              user?.username ? user.username.charAt(0).toUpperCase() : '?'
+            )}
           </div>
         </div>
       </div>
@@ -321,10 +317,10 @@ const Chat = () => {
             </div>
             <div className="drawer-content">
               <div className="profile-photo-section">
-                <input 
-                  type="file" 
-                  ref={fileInputRef} 
-                  style={{ display: 'none' }} 
+                <input
+                  type="file"
+                  ref={fileInputRef}
+                  style={{ display: 'none' }}
                   accept="image/*"
                   onChange={handleImageChange}
                 />
@@ -336,7 +332,7 @@ const Chat = () => {
                   )}
                 </div>
               </div>
-              
+
               <div className="profile-info-section">
                 <label>Your name</label>
                 <div className="profile-info-row">
@@ -393,29 +389,29 @@ const Chat = () => {
           />
         ) : (
           <div className="empty-chat-state">
-             <div className="empty-download-card">
-               <div className="laptop-graphic">
-                 <MdLaptopMac size={80} color="#00a884" />
-               </div>
-               <h2>Download WhatsApp for Windows</h2>
-               <p>Get extra features like voice and video calling, screen sharing and more.</p>
-               <button className="empty-download-btn" onClick={() => window.open('https://www.whatsapp.com/download')}>Download</button>
-             </div>
-             
-             <div className="empty-quick-actions">
-               <div className="action-pill-wrapper">
-                 <div className="action-pill"><MdInsertDriveFile className="pill-icon" /></div>
-                 <span className="pill-text">Send document</span>
-               </div>
-               <div className="action-pill-wrapper">
-                 <div className="action-pill"><MdPersonAddAlt1 className="pill-icon" /></div>
-                 <span className="pill-text">Add contact</span>
-               </div>
-               <div className="action-pill-wrapper">
-                 <div className="action-pill"><MdDonutLarge color="#33b2ff" className="pill-icon" /></div>
-                 <span className="pill-text">Ask Meta AI</span>
-               </div>
-             </div>
+            <div className="empty-download-card">
+              <div className="laptop-graphic">
+                <MdLaptopMac size={80} color="#00a884" />
+              </div>
+              <h2>Download WhatsApp for Windows</h2>
+              <p>Get extra features like voice and video calling, screen sharing and more.</p>
+              <button className="empty-download-btn" onClick={() => window.open('https://www.whatsapp.com/download')}>Download</button>
+            </div>
+
+            <div className="empty-quick-actions">
+              <div className="action-pill-wrapper">
+                <div className="action-pill"><MdInsertDriveFile className="pill-icon" /></div>
+                <span className="pill-text">Send document</span>
+              </div>
+              <div className="action-pill-wrapper">
+                <div className="action-pill"><MdPersonAddAlt1 className="pill-icon" /></div>
+                <span className="pill-text">Add contact</span>
+              </div>
+              <div className="action-pill-wrapper">
+                <div className="action-pill"><MdDonutLarge color="#33b2ff" className="pill-icon" /></div>
+                <span className="pill-text">Ask Meta AI</span>
+              </div>
+            </div>
           </div>
         )}
       </div>

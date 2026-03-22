@@ -127,7 +127,7 @@ const ChatList = ({ users, currentUser, selectedUser, onSelectUser, onLogout, on
                   ) : (
                     u.username ? u.username.charAt(0).toUpperCase() : '?'
                   )}
-                  {u.status === 'online' && <div className="online-indicator"></div>}
+                  {u?.status && u.status === 'online' && <div className="online-indicator"></div>}
                 </div>
                 <div className="chat-item-content">
                   <div className="chat-item-name">{u.username}</div>

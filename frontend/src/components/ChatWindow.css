@@ -177,6 +177,65 @@
   margin-left: 12px;
 }
 
+.attachment-message {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 220px;
+}
+
+.media-preview,
+.audio-preview,
+.document-preview {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.message-media {
+  width: 100%;
+  max-width: 260px;
+  max-height: 260px;
+  border-radius: 10px;
+  object-fit: cover;
+  background: #00000012;
+}
+
+.media-filename,
+.audio-filename {
+  font-size: 0.82rem;
+  color: #54656f;
+  word-break: break-word;
+  line-height: 1.35;
+}
+
+.message-audio {
+  width: 100%;
+  min-width: 240px;
+  max-width: 280px;
+}
+
+.document-preview {
+  gap: 4px;
+}
+
+.document-link {
+  color: #0b57d0;
+  text-decoration: none;
+  font-size: 0.9rem;
+  font-weight: 500;
+  word-break: break-word;
+}
+
+.document-link:hover {
+  text-decoration: underline;
+}
+
+.file-size {
+  font-size: 0.75rem;
+  color: var(--wa-text-muted);
+}
+
 .message-input-form {
   display: flex;
   padding: 10px 16px;
@@ -620,4 +679,3 @@
 .contact-photo-large.view-only::after {
   display: none !important;
 }
-
