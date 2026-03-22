@@ -4,7 +4,7 @@ import { MdCall, MdVideoCall, MdSearch, MdSend, MdMoreVert, MdDeleteOutline, MdC
 import { BsEmojiSmile, BsPaperclip, BsMic, BsFillPlusCircleFill } from 'react-icons/bs';
 import { IoMdInformationCircleOutline } from 'react-icons/io';
 import { AiOutlineClear } from 'react-icons/ai';
-import { FaFileLines, FaImage, FaCamera, FaHeadphones, FaCheckToSlot, FaCalendarDays, FaFaceGrinWide } from 'react-icons/fa6';
+import { FaFileLines, FaImage, FaHeadphones } from 'react-icons/fa6';
 import { BiCheckDouble } from 'react-icons/bi';
 import { messageAPI, normalizeFileUrl } from '../services/api';
 import ConfirmationModal from './ConfirmationModal';
@@ -34,7 +34,6 @@ const ChatWindow = ({ selectedUser, messages, onSendMessage, currentUser, isTypi
   const photoVideoInputRef = useRef(null);
   const audioInputRef = useRef(null);
   const documentInputRef = useRef(null);
-  const cameraInputRef = useRef(null);
   const objectUrlsRef = useRef(new Set());
 
   const toggleFavourite = (userId, e) => {
@@ -258,10 +257,6 @@ const ChatWindow = ({ selectedUser, messages, onSendMessage, currentUser, isTypi
 
   const handleDocument = () => {
     documentInputRef.current?.click();
-  };
-
-  const handleCamera = () => {
-    cameraInputRef.current?.click();
   };
 
   const handleContactInfo = () => {
@@ -552,11 +547,7 @@ const ChatWindow = ({ selectedUser, messages, onSendMessage, currentUser, isTypi
                 <div className="attachment-popup">
                   <div className="attach-item document" onClick={handleDocument}><FaFileLines className="attach-icon" /> Document</div>
                   <div className="attach-item photos" onClick={handlePhotosVideos}><FaImage className="attach-icon" /> Photos & videos</div>
-                  <div className="attach-item camera" onClick={handleCamera}><FaCamera className="attach-icon" /> Camera</div>
                   <div className="attach-item audio" onClick={handleAudio}><FaHeadphones className="attach-icon" /> Audio</div>
-                  <div className="attach-item poll"><FaCheckToSlot className="attach-icon" /> Poll</div>
-                  <div className="attach-item event"><FaCalendarDays className="attach-icon" /> Event</div>
-                  <div className="attach-item sticker"><FaFaceGrinWide className="attach-icon" /> New sticker</div>
                 </div>
               )}
               <input
@@ -578,14 +569,6 @@ const ChatWindow = ({ selectedUser, messages, onSendMessage, currentUser, isTypi
                 ref={documentInputRef}
                 onChange={(e) => handleAttachmentSelect('document', e.target.files?.[0], documentInputRef)}
                 accept=".pdf,.doc,.docx,.txt,.xls,.xlsx"
-                style={{ display: 'none' }}
-              />
-              <input
-                type="file"
-                ref={cameraInputRef}
-                onChange={(e) => handleAttachmentSelect('image', e.target.files?.[0], cameraInputRef)}
-                accept="image/*"
-                capture="environment"
                 style={{ display: 'none' }}
               />
             </div>
