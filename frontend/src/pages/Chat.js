@@ -574,28 +574,13 @@ const Chat = () => {
           />
         ) : (
           <div className="empty-chat-state">
-            <div className="empty-download-card">
-              <div className="laptop-graphic">
-                <MdLaptopMac size={80} color="#00a884" />
-              </div>
-              <h2>Download WhatsApp for Windows</h2>
-              <p>Get extra features like voice and video calling, screen sharing and more.</p>
-              <button className="empty-download-btn" onClick={() => window.open('https://www.whatsapp.com/download')}>Download</button>
+            <div className="empty-logo-container">
+              <FaWhatsapp size={120} color="#00a884" />
             </div>
-
-            <div className="empty-quick-actions">
-              <div className="action-pill-wrapper">
-                <div className="action-pill"><MdInsertDriveFile className="pill-icon" /></div>
-                <span className="pill-text">Send document</span>
-              </div>
-              <div className="action-pill-wrapper">
-                <div className="action-pill"><MdPersonAddAlt1 className="pill-icon" /></div>
-                <span className="pill-text">Add contact</span>
-              </div>
-              <div className="action-pill-wrapper">
-                <div className="action-pill"><MdDonutLarge color="#33b2ff" className="pill-icon" /></div>
-                <span className="pill-text">Ask Meta AI</span>
-              </div>
+            <div className="empty-quotes-container">
+              <h3>Welcome to WhatsApp</h3>
+              <p>"Connect with anyone, anywhere, anytime"</p>
+              <p className="quote-sub">End-to-end encrypted messaging</p>
             </div>
           </div>
         )}
