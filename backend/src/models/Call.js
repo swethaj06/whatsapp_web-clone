@@ -4,19 +4,19 @@ const callSchema = new mongoose.Schema({
   caller: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
-    required: true,
+    required: [true, 'Caller is required'],
     index: true
   },
   receiver: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
-    required: true,
+    required: [true, 'Receiver is required'],
     index: true
   },
   callType: {
     type: String,
     enum: ['audio', 'video'],
-    required: true
+    required: [true, 'Call type is required']
   },
   callStatus: {
     type: String,
@@ -41,9 +41,16 @@ const callSchema = new mongoose.Schema({
     default: null
   }
 }, {
-  timestamps: true
+  timestamps: true,
+  toJSON: {
+    transform: (doc, ret) => {
+      delete ret.__v;
+      return ret;
+    }
+  }
 });
 
+// Optimized indexes for call history fetching
 callSchema.index({ caller: 1, receiver: 1, startTime: -1 });
 callSchema.index({ receiver: 1, caller: 1, startTime: -1 });
 callSchema.index({ startTime: -1 });

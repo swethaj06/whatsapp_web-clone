@@ -26,7 +26,7 @@ import { BsEmojiSmile, BsPaperclip, BsMic, BsFillPlusCircleFill } from 'react-ic
 import { IoMdInformationCircleOutline } from 'react-icons/io';
 import { AiOutlineClear } from 'react-icons/ai';
 import { FaFileLines, FaImage, FaHeadphones } from 'react-icons/fa6';
-import { BiCheckDouble } from 'react-icons/bi';
+import { BiCheckDouble, BiCheck } from 'react-icons/bi';
 import { messageAPI, normalizeFileUrl } from '../services/api';
 import ConfirmationModal from './ConfirmationModal';
 import NotificationModal from './NotificationModal';
@@ -1632,7 +1632,17 @@ const ChatWindow = ({ selectedUser, messages, onSendMessage, currentUser, isTypi
                             minute: '2-digit'
                           })}
                         </span>
-                        {(msg.sender?._id || msg.sender)?.toString() === (currentUser?._id || currentUser?.id)?.toString() && <BiCheckDouble className="read-receipt" />}
+                        {(msg.sender?._id || msg.sender)?.toString() === (currentUser?._id || currentUser?.id)?.toString() && (
+                          <span className="tick-icons">
+                            {msg.isRead ? (
+                              <BiCheckDouble className="read-receipt" title="Read" />
+                            ) : msg.isDelivered ? (
+                              <BiCheckDouble className="delivered-receipt" title="Delivered" />
+                            ) : (
+                              <BiCheck className="sent-receipt" title="Sent" />
+                            )}
+                          </span>
+                        )}
                       </>
                     )}
                   </div>

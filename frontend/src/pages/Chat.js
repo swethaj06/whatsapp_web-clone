@@ -23,6 +23,11 @@ const Chat = () => {
   const fileInputRef = useRef(null);
   const selectedUserRef = useRef(null);
 
+  const isUIDMatch = (id1, id2) => {
+    if (!id1 || !id2) return false;
+    return id1.toString() === id2.toString();
+  };
+
   const formatConversationPreview = (messageSummary = {}) => {
     if (messageSummary.lastMessageType && messageSummary.lastMessageType !== 'text') {
       return messageSummary.lastMessageFileName || messageSummary.lastMessage || 'Attachment';
@@ -42,18 +47,17 @@ const Chat = () => {
         const currentUserId = user._id || user.id;
         const [usersResponse, summariesResponse] = await Promise.all([
           userAPI.getAllUsers(),
-          messageAPI.getConversationSummaries(currentUserId),
-          new Promise(resolve => setTimeout(resolve, 1500))
+          messageAPI.getConversationSummaries(currentUserId)
         ]);
         const conversationSummaryMap = new Map(
           summariesResponse.data.map(summary => [summary._id?.toString(), summary])
         );
 
         const otherUsers = usersResponse.data
-          .filter(u => (u._id || u.id).toString() !== currentUserId.toString())
+          .filter(u => !isUIDMatch(u._id || u.id, currentUserId))
           .map(u => {
-            const userId = (u._id || u.id).toString();
-            const summary = conversationSummaryMap.get(userId);
+            const userId = u._id || u.id;
+            const summary = conversationSummaryMap.get(userId?.toString());
 
             return {
               ...u,
@@ -65,7 +69,19 @@ const Chat = () => {
             };
           });
 
-        setUsers(otherUsers);
+        setUsers(prev => {
+          // If we already have some user data from socket events during loading
+          if (prev.length === 0) return otherUsers;
+          
+          return otherUsers.map(newUser => {
+            const existing = prev.find(u => isUIDMatch(u._id || u.id, newUser._id || newUser.id));
+            if (existing) {
+              // Preserve status and profilePicture if set from socket events
+              return { ...newUser, status: existing.status || newUser.status, profilePicture: existing.profilePicture || newUser.profilePicture };
+            }
+            return newUser;
+          });
+        });
         setLoading(false);
       } catch (error) {
         console.error('Error fetching users:', error);
@@ -74,13 +90,27 @@ const Chat = () => {
     };
 
     const socketInstance = connectSocket();
+    
+    const handleConnect = () => {
+      if (user) {
+        socketInstance.emit('join', (user._id || user.id).toString());
+      }
+    };
+
     if (socketInstance && user) {
-      socketInstance.emit('join', (user._id || user.id).toString());
+      if (socketInstance.connected) {
+        handleConnect();
+      }
+      socketInstance.on('connect', handleConnect);
     }
+
     setSocket(socketInstance);
     fetchUsers();
 
     return () => {
+      if (socketInstance) {
+        socketInstance.off('connect', handleConnect);
+      }
       disconnectSocket();
     };
   }, [user, navigate]);
@@ -88,6 +118,16 @@ const Chat = () => {
   useEffect(() => {
     selectedUserRef.current = selectedUser;
   }, [selectedUser]);
+
+  const markActiveConversationAsRead = useCallback(async (activeUser = selectedUser) => {
+    if (!activeUser || !user) return;
+
+    try {
+      await messageAPI.markConversationAsRead(user._id || user.id, activeUser._id || activeUser.id);
+    } catch (error) {
+      console.error('Error marking conversation as read:', error);
+    }
+  }, [selectedUser, user]);
 
   const fetchMessages = useCallback(async () => {
     if (!selectedUser || !socket || !user) return;
@@ -97,10 +137,11 @@ const Chat = () => {
       const selectedId = selectedUser._id || selectedUser.id;
       const response = await messageAPI.getMessages(currentUserId, selectedId);
       setMessages(response.data);
+      await markActiveConversationAsRead(selectedUser);
     } catch (error) {
       console.error('Error fetching messages:', error);
     }
-  }, [selectedUser, socket, user]);
+  }, [selectedUser, socket, user, markActiveConversationAsRead]);
 
   useEffect(() => {
     fetchMessages();
@@ -109,34 +150,39 @@ const Chat = () => {
   useEffect(() => {
     if (!socket || !user) return;
 
-    const handleReceiveMessage = (data) => {
-      const msgSenderId = (data.sender?._id || data.sender).toString();
-      const msgReceiverId = (data.receiver?._id || data.receiver).toString();
-      const currentUserId = (user._id || user.id).toString();
-      const activeSelectedUser = selectedUserRef.current;
-      const selectedId = activeSelectedUser ? (activeSelectedUser._id || activeSelectedUser.id).toString() : null;
+    const currentUserId = (user._id || user.id).toString();
 
-      if (
-        selectedId &&
-        ((msgSenderId === currentUserId && msgReceiverId === selectedId) ||
-          (msgSenderId === selectedId && msgReceiverId === currentUserId))
-      ) {
+    const handleReceiveMessage = (data) => {
+      const msgSenderId = data.sender?._id || data.sender;
+      const msgReceiverId = data.receiver?._id || data.receiver;
+      const activeSelectedUser = selectedUserRef.current;
+      const selectedId = activeSelectedUser ? (activeSelectedUser._id || activeSelectedUser.id) : null;
+
+      const isActiveConversationMessage = selectedId &&
+        ((isUIDMatch(msgSenderId, currentUserId) && isUIDMatch(msgReceiverId, selectedId)) ||
+          (isUIDMatch(msgSenderId, selectedId) && isUIDMatch(msgReceiverId, currentUserId)));
+
+      if (isActiveConversationMessage) {
         setMessages(prev => {
-          const exists = prev.some(m => (m._id || m.id).toString() === (data._id || data.id).toString());
+          const exists = prev.some(m => isUIDMatch(m._id || m.id, data._id || data.id));
           if (exists) return prev;
           return [...prev.filter(m => !m.isOptimistic), data];
         });
+
+        if (isUIDMatch(msgSenderId, selectedId) && isUIDMatch(msgReceiverId, currentUserId)) {
+          markActiveConversationAsRead(activeSelectedUser);
+        }
       }
 
       setUsers(prevUsers => prevUsers.map(u => {
-        const uId = (u._id || u.id).toString();
-        if (uId === msgSenderId || uId === msgReceiverId) {
-          if (uId === currentUserId) return u;
+        const uId = u._id || u.id;
+        if (isUIDMatch(uId, msgSenderId) || isUIDMatch(uId, msgReceiverId)) {
+          if (isUIDMatch(uId, currentUserId)) return u;
           return {
             ...u,
             lastMessage: data.messageType && data.messageType !== 'text' ? (data.fileName || data.content || 'Attachment') : data.content,
             lastMessageTime: new Date(data.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-            unreadCount: (uId === msgSenderId && selectedId !== uId) ? (u.unreadCount || 0) + 1 : 0
+            unreadCount: (isUIDMatch(uId, msgSenderId) && !isUIDMatch(selectedId, uId)) ? (u.unreadCount || 0) + 1 : (u.unreadCount || 0)
           };
         }
         return u;
@@ -147,43 +193,117 @@ const Chat = () => {
       }));
     };
 
+    const handleMessagesRead = ({ senderId, receiverId, messageIds = [] }) => {
+      // Receiver of the read receipt (the original sender) should see the blue ticks
+      if (!isUIDMatch(receiverId, currentUserId)) {
+        return;
+      }
+
+      const activeSelectedUser = selectedUserRef.current;
+      const selectedId = activeSelectedUser ? (activeSelectedUser._id || activeSelectedUser.id) : null;
+
+      // The senderId in the receipt is the person who read our messages
+      if (selectedId && isUIDMatch(senderId, selectedId)) {
+        setMessages((prev) =>
+          prev.map((message) =>
+            messageIds.some((id) => isUIDMatch(id, message._id || message.id))
+              ? { ...message, isRead: true, isDelivered: true }
+              : message
+          )
+        );
+      }
+    };
+
+    const handleMessagesDelivered = ({ senderId, receiverId, messageIds = [] }) => {
+      // Receiver of the delivery notification (original sender) should see the double gray ticks
+      if (!isUIDMatch(senderId, currentUserId)) {
+        return;
+      }
+
+      const activeSelectedUser = selectedUserRef.current;
+      const selectedId = activeSelectedUser ? (activeSelectedUser._id || activeSelectedUser.id) : null;
+
+      // The receiverId in the notification is the person who received our messages
+      if (selectedId && isUIDMatch(receiverId, selectedId)) {
+        setMessages((prev) =>
+          prev.map((message) =>
+            messageIds.some((id) => isUIDMatch(id, message._id || message.id))
+              ? { ...message, isDelivered: true }
+              : message
+          )
+        );
+      }
+    };
+
     socket.on('receive_message', handleReceiveMessage);
+    socket.on('messages_read', handleMessagesRead);
+    socket.on('messages_delivered', handleMessagesDelivered);
 
     const handleStatusChange = ({ userId, status }) => {
-      setUsers(prev => prev.map(u => {
-        if ((u._id || u.id).toString() === userId.toString()) {
-          return { ...u, status };
-        }
-        return u;
-      }));
-      if (selectedUser && (selectedUser._id || selectedUser.id).toString() === userId.toString()) {
-        setSelectedUser(prev => ({ ...prev, status }));
+      console.log(`[Socket] Received status change: User ${userId} is now ${status}`);
+      setUsers(prev => {
+        const updatedUsers = prev.map(u => {
+          if (isUIDMatch(u._id || u.id, userId)) {
+            return { ...u, status };
+          }
+          return u;
+        });
+        console.log(`[StatusUpdate] Updated list for user ${userId}. Count matches:`, updatedUsers.filter(u => isUIDMatch(u._id || u.id, userId)).length);
+        return updatedUsers;
+      });
+
+      const activeSelectedUser = selectedUserRef.current;
+      if (activeSelectedUser && isUIDMatch(activeSelectedUser._id || activeSelectedUser.id, userId)) {
+        setSelectedUser(prev => {
+          if (prev && isUIDMatch(prev._id || prev.id, userId)) {
+            console.log(`[StatusUpdate] Updating active selectedUser ${userId} to ${status}`);
+            const updated = { ...prev, status };
+            selectedUserRef.current = updated;
+            return updated;
+          }
+          return prev;
+        });
       }
     };
 
     socket.on('user_status_change', handleStatusChange);
 
     socket.on('user_typing', ({ senderId }) => {
-      if (selectedUser && (selectedUser._id || selectedUser.id).toString() === senderId.toString()) {
+      const activeSelectedUser = selectedUserRef.current;
+      if (activeSelectedUser && isUIDMatch(activeSelectedUser._id || activeSelectedUser.id, senderId)) {
         setIsTyping(true);
       }
     });
 
     socket.on('user_stop_typing', ({ senderId }) => {
-      if (selectedUser && (selectedUser._id || selectedUser.id).toString() === senderId.toString()) {
+      const activeSelectedUser = selectedUserRef.current;
+      if (activeSelectedUser && isUIDMatch(activeSelectedUser._id || activeSelectedUser.id, senderId)) {
         setIsTyping(false);
       }
     });
 
     const handleProfileUpdate = ({ userId, profilePicture, username }) => {
       setUsers(prev => prev.map(u => {
-        if ((u._id || u.id).toString() === userId.toString()) {
+        if (isUIDMatch(u._id || u.id, userId)) {
           return { ...u, profilePicture: profilePicture || u.profilePicture, username: username || u.username };
         }
         return u;
       }));
-      if (selectedUser && (selectedUser._id || selectedUser.id).toString() === userId.toString()) {
-        setSelectedUser(prev => ({ ...prev, profilePicture: profilePicture || prev.profilePicture, username: username || prev.username }));
+
+      const activeSelectedUser = selectedUserRef.current;
+      if (activeSelectedUser && isUIDMatch(activeSelectedUser._id || activeSelectedUser.id, userId)) {
+        setSelectedUser(prev => {
+          if (prev && isUIDMatch(prev._id || prev.id, userId)) {
+            const updated = {
+              ...prev,
+              profilePicture: profilePicture || prev.profilePicture,
+              username: username || prev.username
+            };
+            selectedUserRef.current = updated;
+            return updated;
+          }
+          return prev;
+        });
       }
     };
 
@@ -218,13 +338,15 @@ const Chat = () => {
 
     return () => {
       socket.off('receive_message', handleReceiveMessage);
+      socket.off('messages_read', handleMessagesRead);
+      socket.off('messages_delivered', handleMessagesDelivered);
       socket.off('user_status_change', handleStatusChange);
       socket.off('user_typing');
       socket.off('user_stop_typing');
       socket.off('user_profile_update', handleProfileUpdate);
       socket.off('new_user', handleNewUser);
     };
-  }, [user, socket]);
+  }, [user, socket, markActiveConversationAsRead]);
 
   const handleSendMessage = async (content) => {
     const trimmedContent = content.trim();
@@ -276,10 +398,12 @@ const Chat = () => {
     setUsers(prevUsers => prevUsers.filter(u => (u._id || u.id).toString() !== userId.toString()));
     setMessages([]);
     setSelectedUser(null);
+    selectedUserRef.current = null;
   };
 
   const handleSelectUser = async (userToSelect) => {
     setSelectedUser(userToSelect);
+    selectedUserRef.current = userToSelect;
     setUsers(prev => prev.map(u => {
       if ((u._id || u.id).toString() === (userToSelect._id || userToSelect.id).toString()) {
         return { ...u, unreadCount: 0 };
@@ -287,11 +411,7 @@ const Chat = () => {
       return u;
     }));
 
-    try {
-      await messageAPI.markConversationAsRead(user._id || user.id, userToSelect._id || userToSelect.id);
-    } catch (error) {
-      console.error('Error marking conversation as read:', error);
-    }
+    await markActiveConversationAsRead(userToSelect);
   };
 
   const handleLogout = () => {

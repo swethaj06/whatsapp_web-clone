@@ -4,23 +4,29 @@ const activityLogSchema = new mongoose.Schema({
   userId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
-    default: null
+    default: null,
+    index: true
   },
   socketId: {
     type: String,
-    required: true
+    required: [true, 'Socket ID is required']
   },
   action: {
     type: String,
-    required: true
+    required: [true, 'Action is required'],
+    index: true
   },
   details: {
     type: String,
     default: ''
-  },
-  timestamp: {
-    type: Date,
-    default: Date.now
+  }
+}, {
+  timestamps: true,
+  toJSON: {
+    transform: (doc, ret) => {
+      delete ret.__v;
+      return ret;
+    }
   }
 });
 

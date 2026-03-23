@@ -10,6 +10,9 @@ const socketIO = require('socket.io');
 // Load environment variables
 dotenv.config();
 
+const User = require('./models/User');
+const Message = require('./models/Message');
+
 const app = express();
 const server = http.createServer(app);
 const io = socketIO(server, {
@@ -20,11 +23,6 @@ const io = socketIO(server, {
 });
 
 const uploadsRoot = path.join(__dirname, '../uploads');
-const messageUploadsDirectory = path.join(uploadsRoot, 'messages');
-
-if (!fs.existsSync(messageUploadsDirectory)) {
-  fs.mkdirSync(messageUploadsDirectory, { recursive: true });
-}
 
 // Middleware
 app.use(cors());
@@ -42,6 +40,10 @@ const connectDB = async () => {
   try {
     await mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/whatsapp_clone');
     console.log('MongoDB connected successfully');
+    
+    // Reset all users to offline on server startup
+    await User.updateMany({}, { status: 'offline' });
+    console.log('🧹 Initialized all users to offline status');
   } catch (error) {
     console.error('MongoDB connection error:', error);
     process.exit(1);
@@ -50,19 +52,6 @@ const connectDB = async () => {
 
 // Connect to database
 connectDB();
-
-// Reset all users to offline on server startup
-const resetUsersOffline = async () => {
-  try {
-    const User = require('./models/User');
-    await User.updateMany({}, { status: 'offline' });
-    console.log('All users reset to offline on server startup');
-  } catch (error) {
-    console.error('Error resetting users to offline:', error);
-  }
-};
-
-resetUsersOffline();
 
 // Routes
 app.get('/api/health', (req, res) => {
@@ -79,6 +68,7 @@ app.use('/api/messages', messageRoutes);
 
 const ActivityLog = require('./models/ActivityLog');
 const activeCalls = new Map();
+const userSocketConnections = new Map();
 
 const buildCallMessageContent = (callType, callStatus) => {
   const callLabel = callType === 'video' ? 'video' : 'audio';
@@ -103,15 +93,44 @@ io.on('connection', async (socket) => {
     socket.join(userId);
     socket.userId = userId; // Store userId on socket for disconnect handling
     try { await ActivityLog.create({ socketId: socket.id, userId, action: 'joined_room' }); } catch(e) {}
+
+    const normalizedUserId = userId?.toString();
+    const existingConnections = userSocketConnections.get(normalizedUserId) || new Set();
+    existingConnections.add(socket.id);
+    userSocketConnections.set(normalizedUserId, existingConnections);
+    const isFirstActiveConnection = existingConnections.size === 1;
     
     // Update user status to online
-    const User = require('./models/User');
     try {
-      await User.findByIdAndUpdate(userId, { status: 'online' });
-      console.log(`✅ User ${userId} marked as online`);
-      io.emit('user_status_change', { userId, status: 'online' });
+      if (isFirstActiveConnection) {
+        const updatedUser = await User.findByIdAndUpdate(userId, { status: 'online' }, { new: true });
+        if (updatedUser) {
+          console.log(`✅ User ${userId} (${updatedUser.username}) marked as online`);
+          io.emit('user_status_change', { userId: userId.toString(), status: 'online' });
+        } else {
+          console.warn(`⚠️ User ${userId} not found during join`);
+        }
+      }
+
+      // Mark pending messages as delivered
+      const pendingMessages = await Message.find({ receiver: userId, isDelivered: false });
+      if (pendingMessages.length > 0) {
+        const messageIds = pendingMessages.map(m => m._id);
+        await Message.updateMany({ _id: { $in: messageIds } }, { isDelivered: true });
+        
+        // Group by sender to notify them
+        const senders = [...new Set(pendingMessages.map(m => m.sender.toString()))];
+        senders.forEach(senderId => {
+          const senderMessages = pendingMessages.filter(m => m.sender.toString() === senderId).map(m => m._id);
+          io.to(senderId).emit('messages_delivered', {
+            receiverId: userId,
+            senderId,
+            messageIds: senderMessages
+          });
+        });
+      }
     } catch (err) {
-      console.error('Error updating status on join:', err);
+      console.error('Error updating status/delivery on join:', err);
     }
   });
 
@@ -131,7 +150,23 @@ io.on('connection', async (socket) => {
     try { await ActivityLog.create({ socketId: socket.id, action: 'message_received' }); } catch(e) {}
     const receiverId = data.receiver._id || data.receiver;
     const senderId = data.sender._id || data.sender;
+
+    // Check if recipient is online to set initial delivery status
+    const isReceiverOnline = io.sockets.adapter.rooms.has(receiverId.toString());
+    if (isReceiverOnline && data._id) {
+       await Message.findByIdAndUpdate(data._id, { isDelivered: true });
+       data.isDelivered = true;
+    }
+
     io.to(receiverId.toString()).to(senderId.toString()).emit('receive_message', data);
+    
+    if (isReceiverOnline) {
+      io.to(senderId.toString()).emit('messages_delivered', {
+        receiverId,
+        senderId,
+        messageIds: [data._id]
+      });
+    }
   });
 
   socket.on('call_user', async (data) => {
@@ -344,15 +379,34 @@ io.on('connection', async (socket) => {
 
   socket.on('disconnect', async () => {
     try { await ActivityLog.create({ socketId: socket.id, userId: socket.userId, action: 'disconnected' }); } catch(e) {}
-    if (socket.userId) {
-      const User = require('./models/User');
+    const userId = socket.userId;
+    if (userId) {
       try {
-        // Update user status to offline in database
-        await User.findByIdAndUpdate(socket.userId, { status: 'offline' });
-        console.log(`User ${socket.userId} marked as offline`);
-        
-        // Broadcast status change to all connected clients
-        io.emit('user_status_change', { userId: socket.userId, status: 'offline' });
+        const normalizedUserId = userId.toString();
+        const existingConnections = userSocketConnections.get(normalizedUserId);
+
+        if (existingConnections) {
+          existingConnections.delete(socket.id);
+
+          if (existingConnections.size === 0) {
+            userSocketConnections.delete(normalizedUserId);
+
+            // Update user status to offline only when no active sockets remain
+            const updatedUser = await User.findByIdAndUpdate(
+              userId,
+              { status: 'offline', lastSeen: new Date() },
+              { new: true }
+            );
+
+            if (updatedUser) {
+              console.log(`❌ User ${userId} (${updatedUser.username}) marked as offline`);
+              io.emit('user_status_change', { userId: userId.toString(), status: 'offline' });
+            }
+          } else {
+            userSocketConnections.set(normalizedUserId, existingConnections);
+            console.log(`ℹ️ User ${userId} still has ${existingConnections.size} active connection(s)`);
+          }
+        }
       } catch (err) {
         console.error('Error updating status on disconnect:', err);
       }
