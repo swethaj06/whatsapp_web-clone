@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { userAPI, messageAPI } from '../services/api';
@@ -23,6 +23,14 @@ const Chat = () => {
   const fileInputRef = useRef(null);
   const selectedUserRef = useRef(null);
 
+  const formatConversationPreview = (messageSummary = {}) => {
+    if (messageSummary.lastMessageType && messageSummary.lastMessageType !== 'text') {
+      return messageSummary.lastMessageFileName || messageSummary.lastMessage || 'Attachment';
+    }
+
+    return messageSummary.lastMessage || 'Hey there! I am using WhatsApp.';
+  };
+
   useEffect(() => {
     if (!user) {
       navigate('/login');
@@ -31,18 +39,32 @@ const Chat = () => {
 
     const fetchUsers = async () => {
       try {
-        const [response] = await Promise.all([
+        const currentUserId = user._id || user.id;
+        const [usersResponse, summariesResponse] = await Promise.all([
           userAPI.getAllUsers(),
+          messageAPI.getConversationSummaries(currentUserId),
           new Promise(resolve => setTimeout(resolve, 1500))
         ]);
-        const currentUserId = user._id || user.id;
-        const otherUsers = response.data
+        const conversationSummaryMap = new Map(
+          summariesResponse.data.map(summary => [summary._id?.toString(), summary])
+        );
+
+        const otherUsers = usersResponse.data
           .filter(u => (u._id || u.id).toString() !== currentUserId.toString())
-          .map(u => ({
-            ...u,
-            lastMessage: u.lastMessage || 'Hey there! I am using WhatsApp.',
-            lastMessageTime: u.lastMessageTime || ''
-          }));
+          .map(u => {
+            const userId = (u._id || u.id).toString();
+            const summary = conversationSummaryMap.get(userId);
+
+            return {
+              ...u,
+              lastMessage: formatConversationPreview(summary),
+              lastMessageTime: summary?.lastMessageTime
+                ? new Date(summary.lastMessageTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+                : '',
+              unreadCount: summary?.unreadCount || 0
+            };
+          });
+
         setUsers(otherUsers);
         setLoading(false);
       } catch (error) {
@@ -67,22 +89,22 @@ const Chat = () => {
     selectedUserRef.current = selectedUser;
   }, [selectedUser]);
 
+  const fetchMessages = useCallback(async () => {
+    if (!selectedUser || !socket || !user) return;
+
+    try {
+      const currentUserId = user._id || user.id;
+      const selectedId = selectedUser._id || selectedUser.id;
+      const response = await messageAPI.getMessages(currentUserId, selectedId);
+      setMessages(response.data);
+    } catch (error) {
+      console.error('Error fetching messages:', error);
+    }
+  }, [selectedUser, socket, user]);
+
   useEffect(() => {
-    if (!selectedUser || !socket) return;
-
-    const fetchMessages = async () => {
-      try {
-        const currentUserId = user._id || user.id;
-        const selectedId = selectedUser._id || selectedUser.id;
-        const response = await messageAPI.getMessages(currentUserId, selectedId);
-        setMessages(response.data);
-      } catch (error) {
-        console.error('Error fetching messages:', error);
-      }
-    };
-
     fetchMessages();
-  }, [selectedUser, user, socket]);
+  }, [fetchMessages]);
 
   useEffect(() => {
     if (!socket || !user) return;
@@ -118,6 +140,10 @@ const Chat = () => {
           };
         }
         return u;
+      }).sort((a, b) => {
+        const aTime = a.lastMessageTime ? new Date(`1970-01-01T${a.lastMessageTime}`).getTime() : 0;
+        const bTime = b.lastMessageTime ? new Date(`1970-01-01T${b.lastMessageTime}`).getTime() : 0;
+        return bTime - aTime;
       }));
     };
 
@@ -252,7 +278,7 @@ const Chat = () => {
     setSelectedUser(null);
   };
 
-  const handleSelectUser = (userToSelect) => {
+  const handleSelectUser = async (userToSelect) => {
     setSelectedUser(userToSelect);
     setUsers(prev => prev.map(u => {
       if ((u._id || u.id).toString() === (userToSelect._id || userToSelect.id).toString()) {
@@ -260,6 +286,12 @@ const Chat = () => {
       }
       return u;
     }));
+
+    try {
+      await messageAPI.markConversationAsRead(user._id || user.id, userToSelect._id || userToSelect.id);
+    } catch (error) {
+      console.error('Error marking conversation as read:', error);
+    }
   };
 
   const handleLogout = () => {

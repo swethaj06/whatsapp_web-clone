@@ -52,6 +52,9 @@ export const messageAPI = {
   sendAttachment: (attachmentData) => apiClient.post('/messages/send-attachment', attachmentData),
   getMessages: (senderId, receiverId) =>
     apiClient.get('/messages', { params: { senderId, receiverId } }),
+  getConversationSummaries: (userId) => apiClient.get(`/messages/conversations/${userId}`),
+  markConversationAsRead: (senderId, receiverId) =>
+    apiClient.put('/messages/read', { senderId, receiverId }),
   deleteMessage: (messageId) => apiClient.delete(`/messages/${messageId}`),
   deleteMessages: (senderId, receiverId) =>
     apiClient.delete('/messages', { params: { senderId, receiverId } })

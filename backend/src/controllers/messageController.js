@@ -1,5 +1,6 @@
 const fs = require('fs');
 const path = require('path');
+const mongoose = require('mongoose');
 const multer = require('multer');
 const Message = require('../models/Message');
 
@@ -162,6 +163,17 @@ exports.getMessages = async (req, res) => {
       return res.status(400).json({ error: 'Missing senderId or receiverId' });
     }
 
+    await Message.updateMany(
+      {
+        sender: receiverId,
+        receiver: senderId,
+        isRead: false
+      },
+      {
+        $set: { isRead: true }
+      }
+    );
+
     const messages = await Message.find({
       $or: [
         { sender: senderId, receiver: receiverId },
@@ -173,6 +185,88 @@ exports.getMessages = async (req, res) => {
       .sort({ timestamp: 1 });
 
     res.json(messages);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+exports.getConversationSummaries = async (req, res) => {
+  try {
+    const { userId } = req.params;
+
+    if (!userId) {
+      return res.status(400).json({ error: 'Missing userId' });
+    }
+
+    const objectUserId = new mongoose.Types.ObjectId(userId);
+
+    const summaries = await Message.aggregate([
+      {
+        $match: {
+          $or: [{ sender: objectUserId }, { receiver: objectUserId }]
+        }
+      },
+      {
+        $sort: {
+          timestamp: -1
+        }
+      },
+      {
+        $group: {
+          _id: {
+            $cond: [{ $eq: ['$sender', objectUserId] }, '$receiver', '$sender']
+          },
+          lastMessage: { $first: '$content' },
+          lastMessageType: { $first: '$messageType' },
+          lastMessageFileName: { $first: '$fileName' },
+          lastMessageTime: { $first: '$timestamp' },
+          unreadCount: {
+            $sum: {
+              $cond: [
+                {
+                  $and: [
+                    { $eq: ['$receiver', objectUserId] },
+                    { $eq: ['$isRead', false] }
+                  ]
+                },
+                1,
+                0
+              ]
+            }
+          }
+        }
+      }
+    ]);
+
+    res.json(summaries);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+exports.markConversationAsRead = async (req, res) => {
+  try {
+    const { senderId, receiverId } = req.body;
+
+    if (!senderId || !receiverId) {
+      return res.status(400).json({ error: 'Missing senderId or receiverId' });
+    }
+
+    const result = await Message.updateMany(
+      {
+        sender: receiverId,
+        receiver: senderId,
+        isRead: false
+      },
+      {
+        $set: { isRead: true }
+      }
+    );
+
+    res.json({
+      message: 'Conversation marked as read',
+      modifiedCount: result.modifiedCount
+    });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
