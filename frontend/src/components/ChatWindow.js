@@ -5,6 +5,9 @@ import {
   MdVideoCall,
   MdSearch,
   MdSend,
+  MdClose,
+  MdKeyboardArrowUp,
+  MdKeyboardArrowDown,
   MdMoreVert,
   MdDeleteOutline,
   MdArrowBack,
@@ -84,6 +87,9 @@ const ChatWindow = ({ selectedUser, messages, onSendMessage, currentUser, isTypi
   const [recordingPreview, setRecordingPreview] = useState(null);
   const [recordingTimeLeft, setRecordingTimeLeft] = useState(MAX_VOICE_DURATION_SECONDS);
   const [voicePlayback, setVoicePlayback] = useState({});
+  const [showSearchBar, setShowSearchBar] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [activeSearchIndex, setActiveSearchIndex] = useState(0);
   const [activeVoiceMessageId, setActiveVoiceMessageId] = useState(null);
   const [callState, setCallState] = useState({
     isOpen: false,
@@ -134,6 +140,7 @@ const ChatWindow = ({ selectedUser, messages, onSendMessage, currentUser, isTypi
   const recordingChunksRef = useRef([]);
   const recordingMimeTypeRef = useRef('');
   const voiceAudioRefs = useRef({});
+  const messageRefs = useRef({});
 
   const toggleFavourite = (userId, e) => {
     e.stopPropagation();
@@ -768,13 +775,89 @@ const ChatWindow = ({ selectedUser, messages, onSendMessage, currentUser, isTypi
     }));
   };
 
+  const getSearchableMessageText = (msg) => {
+    const parts = [];
+
+    if (msg.content) parts.push(msg.content);
+    if (msg.fileName) parts.push(msg.fileName);
+
+    if (msg.messageType === 'voice') parts.push('voice message');
+    if (msg.messageType === 'audio') parts.push('audio file');
+    if (msg.messageType === 'image') parts.push('photo image media');
+    if (msg.messageType === 'video') parts.push('video media');
+    if (msg.messageType === 'document') parts.push('document file attachment');
+    if (msg.messageType === 'call') {
+      parts.push(msg.callType === 'video' ? 'video call' : 'audio call');
+      if (msg.callStatus) parts.push(msg.callStatus);
+    }
+
+    return parts.join(' ').trim();
+  };
+
+  const filteredSearchMatches = searchQuery.trim()
+    ? messages.reduce((matches, msg, index) => {
+        const searchableText = getSearchableMessageText(msg);
+        if (!searchableText) return matches;
+
+        const normalizedContent = searchableText.toLowerCase();
+        const normalizedQuery = searchQuery.trim().toLowerCase();
+
+        if (normalizedContent.includes(normalizedQuery)) {
+          matches.push({
+            index,
+            messageId: msg._id || msg.id
+          });
+        }
+
+        return matches;
+      }, [])
+    : [];
+
+  const activeSearchMatch = filteredSearchMatches[activeSearchIndex] || null;
+
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
+  const scrollToSearchMatch = (match) => {
+    if (!match) return;
+    const targetMessage = messageRefs.current[match.messageId];
+    if (targetMessage) {
+      targetMessage.scrollIntoView({
+        behavior: 'smooth',
+        block: 'center'
+      });
+    }
+  };
+
   useEffect(() => {
-    scrollToBottom();
+    if (!showSearchBar || !searchQuery.trim() || filteredSearchMatches.length === 0) {
+      scrollToBottom();
+    }
   }, [messages, recordingPreview]);
+
+  useEffect(() => {
+    if (!showSearchBar) return;
+
+    if (!searchQuery.trim()) {
+      setActiveSearchIndex(0);
+      return;
+    }
+
+    if (filteredSearchMatches.length === 0) {
+      setActiveSearchIndex(0);
+      return;
+    }
+
+    if (activeSearchIndex > filteredSearchMatches.length - 1) {
+      setActiveSearchIndex(0);
+    }
+  }, [searchQuery, filteredSearchMatches.length, activeSearchIndex, showSearchBar]);
+
+  useEffect(() => {
+    if (!showSearchBar || !searchQuery.trim() || filteredSearchMatches.length === 0) return;
+    scrollToSearchMatch(activeSearchMatch);
+  }, [activeSearchIndex, activeSearchMatch, filteredSearchMatches.length, showSearchBar, searchQuery]);
 
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -799,6 +882,64 @@ const ChatWindow = ({ selectedUser, messages, onSendMessage, currentUser, isTypi
       setMessageText('');
       setShowEmojiPicker(false);
     }
+  };
+
+  const handleToggleSearch = () => {
+    setShowSearchBar((prev) => {
+      const nextValue = !prev;
+
+      if (!nextValue) {
+        setSearchQuery('');
+        setActiveSearchIndex(0);
+      }
+
+      return nextValue;
+    });
+    setShowDropdown(false);
+  };
+
+  const handleSearchNavigation = (direction) => {
+    if (filteredSearchMatches.length === 0) return;
+
+    setActiveSearchIndex((prev) => {
+      if (direction === 'next') {
+        return (prev + 1) % filteredSearchMatches.length;
+      }
+
+      return (prev - 1 + filteredSearchMatches.length) % filteredSearchMatches.length;
+    });
+  };
+
+  const highlightMessageText = (content) => {
+    if (!content || !searchQuery.trim()) return content;
+
+    const normalizedQuery = searchQuery.trim();
+    const escapedQuery = normalizedQuery.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const regex = new RegExp(`(${escapedQuery})`, 'ig');
+    const parts = content.split(regex);
+
+    return parts.map((part, index) => (
+      part.toLowerCase() === normalizedQuery.toLowerCase() ? (
+        <mark key={`${part}-${index}`} className="message-search-highlight">
+          {part}
+        </mark>
+      ) : (
+        <React.Fragment key={`${part}-${index}`}>{part}</React.Fragment>
+      )
+    ));
+  };
+
+  const getSearchResultLabel = (msg) => {
+    if (msg.messageType === 'call') {
+      return msg.callType === 'video' ? 'Video call' : 'Audio call';
+    }
+
+    if (msg.messageType === 'voice') return 'Voice message';
+    if (msg.messageType === 'audio') return 'Audio file';
+    if (msg.messageType === 'image') return 'Photo';
+    if (msg.messageType === 'video') return 'Video';
+    if (msg.messageType === 'document') return 'Document';
+    return '';
   };
 
   const onEmojiClick = (emojiData) => {
@@ -1441,6 +1582,9 @@ const ChatWindow = ({ selectedUser, messages, onSendMessage, currentUser, isTypi
     if (msg.messageType === 'image' || msg.messageType === 'video') {
       return (
         <div className="media-preview">
+          {getSearchResultLabel(msg) && (
+            <div className="attachment-search-label">{highlightMessageText(getSearchResultLabel(msg))}</div>
+          )}
           {msg.messageType === 'image' ? (
             <a href={fileUrl} target="_blank" rel="noreferrer">
               <img
@@ -1455,7 +1599,7 @@ const ChatWindow = ({ selectedUser, messages, onSendMessage, currentUser, isTypi
               Your browser does not support the video tag.
             </video>
           )}
-          <div className="media-filename">{displayFileName}</div>
+          <div className="media-filename">{highlightMessageText(displayFileName)}</div>
           <div className="document-preview">
             <a href={fileUrl} target="_blank" rel="noreferrer" className="document-link">
               <MdOpenInNew size={16} /> Open
@@ -1475,7 +1619,10 @@ const ChatWindow = ({ selectedUser, messages, onSendMessage, currentUser, isTypi
     if (msg.messageType === 'audio') {
       return (
         <div className="audio-preview">
-          <div className="audio-filename">{displayFileName}</div>
+          {getSearchResultLabel(msg) && (
+            <div className="attachment-search-label">{highlightMessageText(getSearchResultLabel(msg))}</div>
+          )}
+          <div className="audio-filename">{highlightMessageText(displayFileName)}</div>
           <audio controls preload="metadata" className="message-audio">
             <source src={fileUrl} />
             Your browser does not support the audio element.
@@ -1489,7 +1636,10 @@ const ChatWindow = ({ selectedUser, messages, onSendMessage, currentUser, isTypi
       <div className="document-preview">
         <FaFileLines size={24} className="document-icon" />
         <div className="document-info">
-          <div className="document-filename">{displayFileName}</div>
+          {getSearchResultLabel(msg) && (
+            <div className="attachment-search-label">{highlightMessageText(getSearchResultLabel(msg))}</div>
+          )}
+          <div className="document-filename">{highlightMessageText(displayFileName)}</div>
           <div className="file-size">{formatFileSize(msg.fileSize)}</div>
           <div className="document-actions">
             <a href={fileUrl} target="_blank" rel="noreferrer" className="document-link">
@@ -1516,9 +1666,9 @@ const ChatWindow = ({ selectedUser, messages, onSendMessage, currentUser, isTypi
         <div className="call-message-content">
           <div className="call-message-type">
             {isMissed ? (
-              <span className="call-status-missed">Missed {callTypeLabel}</span>
+              <span className="call-status-missed">{highlightMessageText(`Missed ${callTypeLabel}`)}</span>
             ) : (
-              <span className="call-status-completed">{callTypeLabel}</span>
+              <span className="call-status-completed">{highlightMessageText(callTypeLabel)}</span>
             )}
           </div>
           {msg.callDuration && msg.callDuration > 0 && (
@@ -1565,7 +1715,9 @@ const ChatWindow = ({ selectedUser, messages, onSendMessage, currentUser, isTypi
               <MdCall size={22} />
             </button>
             <div className="divider"></div>
-            <button className="icon-button"><MdSearch size={22} /></button>
+            <button className={`icon-button ${showSearchBar ? 'active' : ''}`} onClick={handleToggleSearch} title="Search messages">
+              <MdSearch size={22} />
+            </button>
             <div className="dropdown-wrapper" ref={dropdownRef}>
               <button
                 className={`icon-button ${showDropdown ? 'active' : ''}`}
@@ -1597,16 +1749,90 @@ const ChatWindow = ({ selectedUser, messages, onSendMessage, currentUser, isTypi
           </div>
         </div>
 
+        {showSearchBar && (
+          <div className="chat-search-bar">
+            <div className="chat-search-input-wrapper">
+              <MdSearch size={20} className="chat-search-icon" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search messages, media, documents"
+                className="chat-search-input"
+                autoFocus
+              />
+              {searchQuery && (
+                <button
+                  type="button"
+                  className="chat-search-clear"
+                  onClick={() => {
+                    setSearchQuery('');
+                    setActiveSearchIndex(0);
+                  }}
+                  aria-label="Clear search"
+                >
+                  <MdClose size={18} />
+                </button>
+              )}
+            </div>
+            <div className="chat-search-meta">
+              <span className="chat-search-count">
+                {searchQuery.trim()
+                  ? `${filteredSearchMatches.length ? activeSearchIndex + 1 : 0}/${filteredSearchMatches.length}`
+                  : 'Search'}
+              </span>
+              <button
+                type="button"
+                className="chat-search-nav"
+                onClick={() => handleSearchNavigation('prev')}
+                disabled={filteredSearchMatches.length === 0}
+                aria-label="Previous result"
+              >
+                <MdKeyboardArrowUp size={22} />
+              </button>
+              <button
+                type="button"
+                className="chat-search-nav"
+                onClick={() => handleSearchNavigation('next')}
+                disabled={filteredSearchMatches.length === 0}
+                aria-label="Next result"
+              >
+                <MdKeyboardArrowDown size={22} />
+              </button>
+              <button
+                type="button"
+                className="chat-search-close"
+                onClick={handleToggleSearch}
+                aria-label="Close search"
+              >
+                <MdClose size={20} />
+              </button>
+            </div>
+          </div>
+        )}
+
         <div className="messages-container">
           {messages.length === 0 ? (
             <div className="no-messages">
               <p>No messages yet. Start the conversation!</p>
             </div>
           ) : (
-            messages.map((msg) => (
+            messages.map((msg) => {
+              const messageId = msg._id || msg.id;
+              const isMatchedMessage = filteredSearchMatches.some((match) => match.messageId === messageId);
+              const isActiveMatchedMessage = activeSearchMatch?.messageId === messageId;
+
+              return (
               <div
-                key={msg._id || msg.id}
-                className={`message ${(msg.sender._id || msg.sender).toString() === (currentUser._id || currentUser.id).toString() ? 'sent' : 'received'}`}
+                key={messageId}
+                ref={(element) => {
+                  if (element) {
+                    messageRefs.current[messageId] = element;
+                  } else {
+                    delete messageRefs.current[messageId];
+                  }
+                }}
+                className={`message ${(msg.sender._id || msg.sender).toString() === (currentUser._id || currentUser.id).toString() ? 'sent' : 'received'} ${isMatchedMessage ? 'search-match' : ''} ${isActiveMatchedMessage ? 'search-match-active' : ''}`}
               >
                 <div className="message-content">
                   {msg.messageType === 'call' ? (
@@ -1618,7 +1844,7 @@ const ChatWindow = ({ selectedUser, messages, onSendMessage, currentUser, isTypi
                       {renderAttachmentMessage(msg)}
                     </div>
                   ) : (
-                    <p>{msg.content}</p>
+                    <p>{highlightMessageText(msg.content)}</p>
                   )}
                   <div className="message-meta">
                     {msg.isOptimistic && (
@@ -1648,7 +1874,8 @@ const ChatWindow = ({ selectedUser, messages, onSendMessage, currentUser, isTypi
                   </div>
                 </div>
               </div>
-            ))
+            );
+            })
           )}
           <div ref={messagesEndRef} />
         </div>

@@ -1,9 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { MdSearch, MdMoreVert, MdOutlineAddComment, MdStar, MdStarBorder } from 'react-icons/md';
+import { MdSearch, MdMoreVert, MdOutlineAddComment } from 'react-icons/md';
 import { IoMdPeople } from 'react-icons/io';
-import { AiOutlineStar } from 'react-icons/ai';
-import { BiCheckDouble, BiLockAlt } from 'react-icons/bi';
-import { MdOutlinePlaylistAddCheck, MdLogout } from 'react-icons/md';
+import { MdLogout } from 'react-icons/md';
 import './ChatList.css';
 
 const ChatList = ({ users, currentUser, selectedUser, onSelectUser, onLogout, onProfileClick }) => {
@@ -62,10 +60,6 @@ const ChatList = ({ users, currentUser, selectedUser, onSelectUser, onLogout, on
             {showDropdown && (
               <div className="chat-list-dropdown">
                 <div className="dropdown-item"><IoMdPeople className="menu-icon" /> New group</div>
-                <div className="dropdown-item"><AiOutlineStar className="menu-icon" /> Starred messages</div>
-                <div className="dropdown-item"><MdOutlinePlaylistAddCheck className="menu-icon" /> Select chats</div>
-                <div className="dropdown-item"><BiCheckDouble className="menu-icon" /> Mark all as read</div>
-                <div className="dropdown-item"><BiLockAlt className="menu-icon" /> App lock</div>
                 <div className="dropdown-item logout" onClick={onLogout}><MdLogout className="menu-icon" /> Log out</div>
               </div>
             )}
