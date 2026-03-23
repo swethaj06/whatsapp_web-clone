@@ -98,6 +98,7 @@ const ChatWindow = ({ selectedUser, messages, onSendMessage, currentUser, isTypi
     callId: null,
     callDuration: 0
   });
+  const [callNotificationSent, setCallNotificationSent] = useState(false);
   const [favourites, setFavourites] = useState(() => {
     try {
       return JSON.parse(localStorage.getItem('whatsapp_favourites')) || [];
@@ -186,6 +187,21 @@ const ChatWindow = ({ selectedUser, messages, onSendMessage, currentUser, isTypi
     }
   };
 
+  const startCallDurationTimer = () => {
+    if (callTimerRef.current) {
+      clearInterval(callTimerRef.current);
+    }
+
+    callTimerRef.current = setInterval(() => {
+      setCallState((prev) => ({
+        ...prev,
+        callDuration: callStartTimeRef.current
+          ? Math.floor((Date.now() - callStartTimeRef.current) / 1000)
+          : 0
+      }));
+    }, 1000);
+  };
+
   const resetCallState = () => {
     cleanupPeerConnection();
     stopLocalMedia();
@@ -226,6 +242,7 @@ const ChatWindow = ({ selectedUser, messages, onSendMessage, currentUser, isTypi
       callId: null,
       callDuration: 0
     });
+    setCallNotificationSent(false);
   };
 
   const stopRecordingStream = () => {
@@ -326,17 +343,31 @@ const ChatWindow = ({ selectedUser, messages, onSendMessage, currentUser, isTypi
       const state = peerConnection.connectionState;
 
       if (state === 'connected') {
+        if (callTimeoutRef.current) {
+          clearTimeout(callTimeoutRef.current);
+          callTimeoutRef.current = null;
+        }
+
+        if (!callStartTimeRef.current) {
+          callStartTimeRef.current = Date.now();
+        }
+
+        callStatusRef.current.isConnected = true;
+        callStatusRef.current.isIncoming = false;
+
         setCallState((prev) => ({
           ...prev,
           isConnected: true,
+          isIncoming: false,
           status: 'Connected'
         }));
+        startCallDurationTimer();
       }
 
       if (['disconnected', 'failed', 'closed'].includes(state)) {
         setCallState((prev) => ({
           ...prev,
-          status: 'Call ended'
+          status: prev.isConnected ? 'Call ended' : 'Connection failed'
         }));
       }
     };
@@ -449,7 +480,8 @@ const ChatWindow = ({ selectedUser, messages, onSendMessage, currentUser, isTypi
         status: callType === 'video' ? 'Incoming video call' : 'Incoming audio call',
         callerName: fromUserName || 'Unknown User',
         callerAvatar: fromUserAvatar || '',
-        callId
+        callId,
+        callDuration: 0
       });
 
       callStatusRef.current = {
@@ -497,12 +529,7 @@ const ChatWindow = ({ selectedUser, messages, onSendMessage, currentUser, isTypi
         callStatusRef.current.isConnected = true;
         callStatusRef.current.isIncoming = false;
 
-        callTimerRef.current = setInterval(() => {
-          setCallState((prev) => ({
-            ...prev,
-            callDuration: Math.floor((Date.now() - callStartTimeRef.current) / 1000)
-          }));
-        }, 1000);
+        startCallDurationTimer();
       } catch (error) {
         console.error('Error applying remote answer:', error);
         showCallNotification('error', 'CALL FAILED', 'Could not connect the call.');
@@ -524,12 +551,28 @@ const ChatWindow = ({ selectedUser, messages, onSendMessage, currentUser, isTypi
 
     const handleCallRejected = ({ reason }) => {
       const message = reason === 'busy' ? 'User is busy on another call.' : 'Call was rejected or missed.';
-      showCallNotification('info', 'CALL ENDED', message);
+      if (!callNotificationSent) {
+        showCallNotification('info', 'CALL ENDED', message);
+        setCallNotificationSent(true);
+      }
       resetCallState();
     };
 
     const handleCallEnded = () => {
-      showCallNotification('success', 'CALL ENDED', 'The call has ended.');
+      if (!callNotificationSent) {
+        showCallNotification('success', 'CALL ENDED', 'The call has ended.');
+        setCallNotificationSent(true);
+      }
+      resetCallState();
+    };
+
+    const handleCallBusy = () => {
+      showCallNotification('info', 'USER BUSY', 'This user is already on another call.');
+      resetCallState();
+    };
+
+    const handleCallError = ({ message }) => {
+      showCallNotification('error', 'CALL FAILED', message || 'Unable to connect the call.');
       resetCallState();
     };
 
@@ -538,6 +581,8 @@ const ChatWindow = ({ selectedUser, messages, onSendMessage, currentUser, isTypi
     socket.on('ice_candidate', handleIceCandidate);
     socket.on('call_rejected', handleCallRejected);
     socket.on('call_ended', handleCallEnded);
+    socket.on('call_busy', handleCallBusy);
+    socket.on('call_error', handleCallError);
 
     return () => {
       socket.off('incoming_call', handleIncomingCall);
@@ -545,6 +590,8 @@ const ChatWindow = ({ selectedUser, messages, onSendMessage, currentUser, isTypi
       socket.off('ice_candidate', handleIceCandidate);
       socket.off('call_rejected', handleCallRejected);
       socket.off('call_ended', handleCallEnded);
+      socket.off('call_busy', handleCallBusy);
+      socket.off('call_error', handleCallError);
     };
   }, [socket, currentUser]);
 
@@ -563,15 +610,14 @@ const ChatWindow = ({ selectedUser, messages, onSendMessage, currentUser, isTypi
       await peerConnection.setLocalDescription(offer);
 
       callStartTimeRef.current = Date.now();
-      let callId = null;
-
-      socket.once('call_initiated', ({ callId: receivedCallId }) => {
-        callId = receivedCallId;
+      const handleCallInitiated = ({ callId: receivedCallId }) => {
         setCallState((prev) => ({
           ...prev,
           callId: receivedCallId
         }));
-      });
+      };
+
+      socket.once('call_initiated', handleCallInitiated);
 
       setCallState({
         isOpen: true,
@@ -607,7 +653,7 @@ const ChatWindow = ({ selectedUser, messages, onSendMessage, currentUser, isTypi
           socket.emit('end_call', {
             toUserId: targetUserId,
             fromUserId: currentUser._id || currentUser.id,
-            callId,
+            callId: callState.callId,
             duration: 0,
             reason: 'no_answer'
           });
@@ -644,11 +690,22 @@ const ChatWindow = ({ selectedUser, messages, onSendMessage, currentUser, isTypi
         callType: callState.callType
       });
 
+      if (callTimeoutRef.current) {
+        clearTimeout(callTimeoutRef.current);
+        callTimeoutRef.current = null;
+      }
+
+      callStartTimeRef.current = Date.now();
+      callStatusRef.current.isIncoming = false;
+      callStatusRef.current.isConnected = true;
+      startCallDurationTimer();
+
       setCallState((prev) => ({
         ...prev,
         isIncoming: false,
         isConnected: true,
-        status: 'Connected'
+        status: 'Connected',
+        callDuration: 0
       }));
     } catch (error) {
       console.error('Error answering call:', error);

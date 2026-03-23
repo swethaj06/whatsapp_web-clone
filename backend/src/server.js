@@ -78,6 +78,21 @@ app.use('/api/users', userRoutes);
 app.use('/api/messages', messageRoutes);
 
 const ActivityLog = require('./models/ActivityLog');
+const activeCalls = new Map();
+
+const buildCallMessageContent = (callType, callStatus) => {
+  const callLabel = callType === 'video' ? 'video' : 'audio';
+
+  if (callStatus === 'missed') {
+    return `Missed ${callLabel} call`;
+  }
+
+  if (callStatus === 'rejected') {
+    return `Declined ${callLabel} call`;
+  }
+
+  return `${callLabel === 'video' ? 'Video' : 'Audio'} call`;
+};
 
 // Socket.IO connection handling
 io.on('connection', async (socket) => {
@@ -121,70 +136,98 @@ io.on('connection', async (socket) => {
 
   socket.on('call_user', async (data) => {
     const targetUserId = data?.toUserId;
-    console.log('📞 CALL_USER EVENT - From:', data.fromUserId, 'To:', targetUserId, 'Type:', data.callType);
-    
-    if (!targetUserId) {
-      console.log('⚠️ No target user ID provided');
+    const callerUserId = data?.fromUserId;
+
+    console.log('📞 CALL_USER EVENT - From:', callerUserId, 'To:', targetUserId, 'Type:', data.callType);
+
+    if (!targetUserId || !callerUserId || !data?.offer) {
+      socket.emit('call_error', { message: 'Invalid call request.' });
       return;
     }
 
     try {
       const Call = require('./models/Call');
-      const caller = data.fromUserId;
-      
-      // Create call record
+
+      const existingCall = activeCalls.get(targetUserId.toString());
+      if (existingCall && existingCall.status !== 'ended') {
+        socket.emit('call_busy', {
+          toUserId: targetUserId,
+          reason: 'busy'
+        });
+        io.to(targetUserId.toString()).emit('call_busy', {
+          toUserId: callerUserId,
+          reason: 'busy'
+        });
+        return;
+      }
+
       const callRecord = await Call.create({
-        caller,
+        caller: callerUserId,
         receiver: targetUserId,
         callType: data.callType,
         callStatus: 'no_answer',
         startTime: new Date()
       });
-      
-      console.log('✅ Call record created:', callRecord._id);
 
-      // Store call ID in socket for reference
-      socket.currentCallId = callRecord._id;
+      const activeCall = {
+        callId: callRecord._id.toString(),
+        callerId: callerUserId.toString(),
+        receiverId: targetUserId.toString(),
+        callType: data.callType,
+        status: 'ringing',
+        startedAt: Date.now()
+      };
+
+      activeCalls.set(callerUserId.toString(), activeCall);
+      activeCalls.set(targetUserId.toString(), activeCall);
+
+      socket.currentCallId = callRecord._id.toString();
       socket.callStartTime = Date.now();
 
-      // Send call initiated response to caller with callId
       socket.emit('call_initiated', {
-        callId: callRecord._id
+        callId: callRecord._id,
+        toUserId: targetUserId,
+        callType: data.callType
       });
-      console.log('📤 Sent call_initiated to caller');
 
-      // Send incoming call to receiver with callId
-      console.log('📤 Sending incoming_call to room:', targetUserId.toString());
       io.to(targetUserId.toString()).emit('incoming_call', {
         callId: callRecord._id,
-        fromUserId: data.fromUserId,
+        fromUserId: callerUserId,
         fromUserName: data.fromUserName,
         fromUserAvatar: data.fromUserAvatar || '',
         callType: data.callType,
         offer: data.offer
       });
-      console.log('✅ Incoming call event sent to receiver');
     } catch (err) {
       console.error('❌ Error creating call record:', err);
+      socket.emit('call_error', { message: 'Unable to start the call.' });
     }
   });
 
   socket.on('answer_call', async (data) => {
     const targetUserId = data?.toUserId;
-    if (!targetUserId) return;
+    const fromUserId = data?.fromUserId;
+    if (!targetUserId || !fromUserId || !data?.answer) return;
 
     try {
       const Call = require('./models/Call');
-      
-      // Update call record
+
       if (data.callId) {
         await Call.findByIdAndUpdate(data.callId, {
           callStatus: 'accepted'
         });
       }
 
+      const activeCall = activeCalls.get(fromUserId.toString()) || activeCalls.get(targetUserId.toString());
+      if (activeCall) {
+        activeCall.status = 'accepted';
+        activeCalls.set(fromUserId.toString(), activeCall);
+        activeCalls.set(targetUserId.toString(), activeCall);
+      }
+
       io.to(targetUserId.toString()).emit('call_answered', {
-        fromUserId: data.fromUserId,
+        callId: data.callId,
+        fromUserId,
         answer: data.answer,
         callType: data.callType
       });
@@ -205,16 +248,16 @@ io.on('connection', async (socket) => {
 
   socket.on('reject_call', async (data) => {
     const targetUserId = data?.toUserId;
-    if (!targetUserId) return;
+    const fromUserId = data?.fromUserId;
+    if (!targetUserId || !fromUserId) return;
 
     try {
       const Call = require('./models/Call');
       const Message = require('./models/Message');
-      
+
       const reason = data.reason || 'rejected';
       const callStatus = reason === 'busy' ? 'rejected' : 'missed';
 
-      // Update call record
       if (data.callId) {
         const callRecord = await Call.findByIdAndUpdate(data.callId, {
           callStatus,
@@ -222,23 +265,30 @@ io.on('connection', async (socket) => {
           duration: 0
         }, { new: true });
 
-        // Create message for missed call
         if (callRecord) {
-          await Message.create({
+          const message = await Message.create({
             sender: callRecord.caller,
             receiver: callRecord.receiver,
             messageType: 'call',
             callType: callRecord.callType,
-            callStatus: 'missed',
-            content: `Missed ${callRecord.callType} call`,
+            callStatus,
+            callDuration: 0,
+            content: buildCallMessageContent(callRecord.callType, callStatus),
             timestamp: new Date()
           });
+
+          await Call.findByIdAndUpdate(data.callId, { messageId: message._id });
+          io.to(callRecord.caller.toString()).to(callRecord.receiver.toString()).emit('receive_message', message);
         }
       }
 
+      activeCalls.delete(targetUserId.toString());
+      activeCalls.delete(fromUserId.toString());
+
       io.to(targetUserId.toString()).emit('call_rejected', {
-        fromUserId: data.fromUserId,
-        reason: data.reason || 'rejected'
+        callId: data.callId,
+        fromUserId,
+        reason
       });
     } catch (err) {
       console.error('Error handling call rejection:', err);
@@ -247,22 +297,44 @@ io.on('connection', async (socket) => {
 
   socket.on('end_call', async (data) => {
     const targetUserId = data?.toUserId;
-    if (!targetUserId) return;
+    const fromUserId = data?.fromUserId;
+    if (!targetUserId || !fromUserId) return;
 
     try {
       const Call = require('./models/Call');
-      
-      // Update call record with duration
+      const Message = require('./models/Message');
+
       if (data.callId) {
-        await Call.findByIdAndUpdate(data.callId, {
+        const callRecord = await Call.findByIdAndUpdate(data.callId, {
           callStatus: 'accepted',
           endTime: new Date(),
           duration: data.duration || 0
-        });
+        }, { new: true });
+
+        if (callRecord && (data.duration || 0) > 0) {
+          const message = await Message.create({
+            sender: callRecord.caller,
+            receiver: callRecord.receiver,
+            messageType: 'call',
+            callType: callRecord.callType,
+            callStatus: 'accepted',
+            callDuration: data.duration || 0,
+            content: buildCallMessageContent(callRecord.callType, 'accepted'),
+            timestamp: new Date()
+          });
+
+          await Call.findByIdAndUpdate(data.callId, { messageId: message._id });
+          io.to(callRecord.caller.toString()).to(callRecord.receiver.toString()).emit('receive_message', message);
+        }
       }
 
+      activeCalls.delete(targetUserId.toString());
+      activeCalls.delete(fromUserId.toString());
+
       io.to(targetUserId.toString()).emit('call_ended', {
-        fromUserId: data.fromUserId,
+        callId: data.callId,
+        fromUserId,
+        duration: data.duration || 0,
         reason: data.reason || 'ended'
       });
     } catch (err) {
