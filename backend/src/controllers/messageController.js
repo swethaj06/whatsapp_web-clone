@@ -52,7 +52,8 @@ const normalizeMessagePayload = async (req, body, file = null) => {
     messageType = 'text',
     fileUrl = null,
     fileName = null,
-    fileSize = null
+    fileSize = null,
+    fileDuration = null
   } = body;
 
   if (!sender || !receiver) {
@@ -78,7 +79,8 @@ const normalizeMessagePayload = async (req, body, file = null) => {
         messageType: resolvedMessageType,
         fileUrl,
         fileName,
-        fileSize
+        fileSize,
+        fileDuration
       }
     };
   }
@@ -95,6 +97,7 @@ const normalizeMessagePayload = async (req, body, file = null) => {
         fileUrl: directFileUrl,
         fileName: file.originalname || fileName || file.filename,
         fileSize: file.size,
+        fileDuration: fileDuration ? Number(fileDuration) : null,
         fileMimeType: file.mimetype || null,
         storedFileName: file.filename
       }
@@ -113,7 +116,8 @@ const normalizeMessagePayload = async (req, body, file = null) => {
       messageType: resolvedMessageType,
       fileUrl,
       fileName,
-      fileSize
+      fileSize,
+      fileDuration
     }
   };
 };

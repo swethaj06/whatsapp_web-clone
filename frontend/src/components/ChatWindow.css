@@ -230,6 +230,30 @@
   gap: 8px;
 }
 
+.document-icon {
+  color: #54656f;
+}
+
+.document-info {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.document-filename {
+  font-size: 0.92rem;
+  color: #111b21;
+  font-weight: 500;
+  word-break: break-word;
+}
+
+.document-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
 .message-media {
   width: 100%;
   max-width: 260px;
@@ -425,19 +449,37 @@
   padding: 10px 16px;
   background-color: #f0f2f5;
   align-items: center;
-  gap: 20px;
-  height: 62px;
+  gap: 14px;
+  min-height: 72px;
 }
 
-.recording-trash {
+.recording-trash,
+.recording-pause,
+.recording-preview-play {
+  width: 40px;
+  height: 40px;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
   color: #54656f;
   cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+.recording-trash:hover,
+.recording-pause:hover,
+.recording-preview-play:hover {
+  background: rgba(84, 101, 111, 0.1);
 }
 
 .recording-status {
   display: flex;
   align-items: center;
   gap: 10px;
+  min-width: 78px;
 }
 
 .recording-dot {
@@ -451,30 +493,85 @@
 .recording-time {
   font-size: 16px;
   color: #111b21;
+  font-weight: 500;
 }
 
 .recording-visualizer {
   flex: 1;
   display: flex;
-  align-items: center;
-  gap: 3px;
+  align-items: flex-end;
+  gap: 4px;
+  height: 30px;
 }
 
 .wave-bar {
-  width: 3px;
-  height: 12px;
-  background-color: #aebac1;
-  border-radius: 2px;
+  width: 4px;
+  min-height: 10px;
+  background-color: #c0c9cf;
+  border-radius: 999px;
+  transform-origin: bottom;
+  animation: waveformPulse 1.15s ease-in-out infinite;
 }
 
-.recording-pause { color: #ff2d55; cursor: pointer; }
-.recording-once { color: #54656f; cursor: pointer; }
+.wave-bar.active:nth-child(3n) {
+  animation-delay: 0.1s;
+}
+
+.wave-bar.active:nth-child(4n) {
+  animation-delay: 0.2s;
+}
+
+.wave-bar.paused {
+  animation: none;
+  opacity: 0.65;
+}
+
+.recording-pause {
+  color: #ff2d55;
+}
+
+.recording-once {
+  color: #667781;
+  font-size: 0.85rem;
+  min-width: 56px;
+  text-align: right;
+}
 
 .voice-send {
   background-color: #00a884 !important;
   color: #ffffff !important;
   width: 44px;
   height: 44px;
+}
+
+.voice-preview-container {
+  gap: 12px;
+}
+
+.recording-preview-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.recording-preview-label,
+.recording-preview-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  color: #667781;
+  font-size: 0.78rem;
+  font-weight: 500;
+}
+
+.recording-preview-label {
+  justify-content: flex-start;
+  gap: 6px;
+}
+
+.recording-preview-wave {
+  width: 100%;
 }
 
 @keyframes pulse {
@@ -1028,4 +1125,115 @@
   font-size: 0.85rem;
   color: #667781;
   font-weight: 400;
+}
+
+.voice-message-card {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 250px;
+  max-width: 320px;
+}
+
+.voice-message-play {
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  border: none;
+  background: #00a884;
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  flex-shrink: 0;
+  box-shadow: 0 1px 2px rgba(11, 20, 26, 0.14);
+  transition: transform 0.15s ease, background-color 0.2s ease;
+}
+
+.voice-message-play:hover {
+  transform: scale(1.04);
+}
+
+.voice-message-play.playing {
+  background: #128c7e;
+}
+
+.voice-message-body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.voice-waveform {
+  width: 100%;
+  cursor: pointer;
+}
+
+.voice-waveform-track {
+  position: relative;
+  display: flex;
+  align-items: flex-end;
+  gap: 3px;
+  min-height: 28px;
+  overflow: hidden;
+}
+
+.voice-waveform-progress {
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  height: 4px;
+  border-radius: 999px;
+  background: rgba(0, 168, 132, 0.22);
+  pointer-events: none;
+  transition: width 0.1s linear;
+}
+
+.voice-wave-bar {
+  width: 4px;
+  border-radius: 999px;
+  background: #c2c8cc;
+  position: relative;
+  z-index: 1;
+  transition: background-color 0.15s ease;
+}
+
+.voice-wave-bar.active {
+  background: #00a884;
+}
+
+.message.sent .voice-wave-bar.active {
+  background: #128c7e;
+}
+
+.voice-message-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  color: #667781;
+  font-size: 0.73rem;
+  line-height: 1;
+}
+
+.voice-message-time-label,
+.voice-message-duration {
+  white-space: nowrap;
+}
+
+.voice-message-audio-hidden {
+  display: none;
+}
+
+@keyframes waveformPulse {
+  0%, 100% {
+    transform: scaleY(0.78);
+    opacity: 0.72;
+  }
+  50% {
+    transform: scaleY(1.1);
+    opacity: 1;
+  }
 }

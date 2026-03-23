@@ -7,8 +7,6 @@ import {
   MdSend,
   MdMoreVert,
   MdDeleteOutline,
-  MdClose,
-  MdHistory,
   MdArrowBack,
   MdStar,
   MdStarBorder,
@@ -18,7 +16,11 @@ import {
   MdMic,
   MdMicOff,
   MdVideocam,
-  MdVideocamOff
+  MdVideocamOff,
+  MdPause,
+  MdPlayArrow,
+  MdStop,
+  MdLock
 } from 'react-icons/md';
 import { BsEmojiSmile, BsPaperclip, BsMic, BsFillPlusCircleFill } from 'react-icons/bs';
 import { IoMdInformationCircleOutline } from 'react-icons/io';
@@ -37,6 +39,35 @@ const ICE_SERVERS = {
   ]
 };
 
+const MAX_VOICE_DURATION_SECONDS = 300;
+const MIN_VOICE_DURATION_MS = 700;
+const AUDIO_MIME_CANDIDATES = [
+  'audio/webm;codecs=opus',
+  'audio/mp4',
+  'audio/ogg;codecs=opus',
+  'audio/webm'
+];
+
+const formatDuration = (seconds = 0) => {
+  const safeSeconds = Math.max(0, Math.floor(seconds));
+  const minutes = Math.floor(safeSeconds / 60);
+  const remainingSeconds = safeSeconds % 60;
+  return `${minutes}:${String(remainingSeconds).padStart(2, '0')}`;
+};
+
+const getSupportedAudioMimeType = () => {
+  if (typeof MediaRecorder === 'undefined') return '';
+  const supportedType = AUDIO_MIME_CANDIDATES.find((mimeType) => {
+    try {
+      return MediaRecorder.isTypeSupported(mimeType);
+    } catch (error) {
+      return false;
+    }
+  });
+
+  return supportedType || '';
+};
+
 const ChatWindow = ({ selectedUser, messages, onSendMessage, currentUser, isTyping, socket, onClearChat, onDeleteChat, setMessages }) => {
   const [messageText, setMessageText] = useState('');
   const [showDropdown, setShowDropdown] = useState(false);
@@ -49,6 +80,11 @@ const ChatWindow = ({ selectedUser, messages, onSendMessage, currentUser, isTypi
   const [showNotification, setShowNotification] = useState(false);
   const [notificationData, setNotificationData] = useState({ type: 'success', title: '', message: '' });
   const [isLoadingAction, setIsLoadingAction] = useState(false);
+  const [recordingDuration, setRecordingDuration] = useState(0);
+  const [recordingPreview, setRecordingPreview] = useState(null);
+  const [recordingTimeLeft, setRecordingTimeLeft] = useState(MAX_VOICE_DURATION_SECONDS);
+  const [voicePlayback, setVoicePlayback] = useState({});
+  const [activeVoiceMessageId, setActiveVoiceMessageId] = useState(null);
   const [callState, setCallState] = useState({
     isOpen: false,
     isIncoming: false,
@@ -90,6 +126,13 @@ const ChatWindow = ({ selectedUser, messages, onSendMessage, currentUser, isTypi
   const callTimeoutRef = useRef(null);
   const callTimerRef = useRef(null);
   const callStatusRef = useRef({ isOpen: false, isConnected: false, isIncoming: false });
+  const mediaRecorderRef = useRef(null);
+  const recordingStreamRef = useRef(null);
+  const recordingTimerRef = useRef(null);
+  const recordingStartedAtRef = useRef(null);
+  const recordingChunksRef = useRef([]);
+  const recordingMimeTypeRef = useRef('');
+  const voiceAudioRefs = useRef({});
 
   const toggleFavourite = (userId, e) => {
     e.stopPropagation();
@@ -150,8 +193,7 @@ const ChatWindow = ({ selectedUser, messages, onSendMessage, currentUser, isTypi
     pendingOfferRef.current = null;
     currentCallUserIdRef.current = null;
     callStartTimeRef.current = null;
-    
-    // Clear call timeout and timer
+
     if (callTimeoutRef.current) {
       clearTimeout(callTimeoutRef.current);
       callTimeoutRef.current = null;
@@ -160,18 +202,17 @@ const ChatWindow = ({ selectedUser, messages, onSendMessage, currentUser, isTypi
       clearInterval(callTimerRef.current);
       callTimerRef.current = null;
     }
-    
+
     if (localVideoRef.current) {
       localVideoRef.current.srcObject = null;
     }
-    
-    // Clear ref
+
     callStatusRef.current = {
       isOpen: false,
       isConnected: false,
       isIncoming: false
     };
-    
+
     setCallState({
       isOpen: false,
       isIncoming: false,
@@ -187,10 +228,61 @@ const ChatWindow = ({ selectedUser, messages, onSendMessage, currentUser, isTypi
     });
   };
 
+  const stopRecordingStream = () => {
+    if (recordingStreamRef.current) {
+      recordingStreamRef.current.getTracks().forEach((track) => track.stop());
+      recordingStreamRef.current = null;
+    }
+  };
+
+  const clearRecordingTimer = () => {
+    if (recordingTimerRef.current) {
+      clearInterval(recordingTimerRef.current);
+      recordingTimerRef.current = null;
+    }
+  };
+
+  const clearRecordingPreview = () => {
+    if (recordingPreview?.url) {
+      cleanupObjectUrl(recordingPreview.url);
+    }
+    setRecordingPreview(null);
+  };
+
+  const resetRecordingState = ({ keepPreview = false } = {}) => {
+    if (mediaRecorderRef.current) {
+      mediaRecorderRef.current.ondataavailable = null;
+      mediaRecorderRef.current.onstop = null;
+      mediaRecorderRef.current.onerror = null;
+      mediaRecorderRef.current = null;
+    }
+
+    clearRecordingTimer();
+    stopRecordingStream();
+    recordingChunksRef.current = [];
+    recordingStartedAtRef.current = null;
+    recordingMimeTypeRef.current = '';
+    setIsRecording(false);
+    setRecordingDuration(0);
+    setRecordingTimeLeft(MAX_VOICE_DURATION_SECONDS);
+
+    if (!keepPreview) {
+      clearRecordingPreview();
+    }
+  };
+
   useEffect(() => {
     return () => {
       objectUrlsRef.current.forEach((url) => URL.revokeObjectURL(url));
       objectUrlsRef.current.clear();
+      Object.values(voiceAudioRefs.current).forEach((audioElement) => {
+        if (audioElement) {
+          audioElement.pause();
+          audioElement.src = '';
+        }
+      });
+      voiceAudioRefs.current = {};
+      resetRecordingState();
       resetCallState();
     };
   }, []);
@@ -281,7 +373,7 @@ const ChatWindow = ({ selectedUser, messages, onSendMessage, currentUser, isTypi
     } catch (error) {
       console.error('Error getting media stream:', error);
       let errorMessage = 'Unable to access microphone/camera';
-      
+
       if (error.name === 'NotAllowedError') {
         errorMessage = 'Permission denied. Please allow access to microphone/camera.';
       } else if (error.name === 'NotFoundError') {
@@ -289,7 +381,7 @@ const ChatWindow = ({ selectedUser, messages, onSendMessage, currentUser, isTypi
       } else if (error.name === 'NotReadableError') {
         errorMessage = 'Could not access microphone/camera. It may be in use by another application.';
       }
-      
+
       throw new Error(errorMessage);
     }
   };
@@ -333,11 +425,7 @@ const ChatWindow = ({ selectedUser, messages, onSendMessage, currentUser, isTypi
     if (!socket) return undefined;
 
     const handleIncomingCall = ({ callId, fromUserId, fromUserName, fromUserAvatar, callType, offer }) => {
-      console.log('📞 INCOMING CALL RECEIVED:', { fromUserName, callType, callId });
-      
-      // Only reject if already on a call, not based on selected user
       if (callStatusRef.current.isOpen && callStatusRef.current.isConnected) {
-        console.log('❌ Rejecting call - already on a call');
         socket.emit('reject_call', {
           toUserId: fromUserId,
           fromUserId: currentUser._id || currentUser.id,
@@ -347,11 +435,10 @@ const ChatWindow = ({ selectedUser, messages, onSendMessage, currentUser, isTypi
         return;
       }
 
-      console.log('✅ Accepting incoming call, setting call state...');
       pendingOfferRef.current = offer;
       currentCallUserIdRef.current = fromUserId;
       callStartTimeRef.current = Date.now();
-      
+
       setCallState({
         isOpen: true,
         isIncoming: true,
@@ -364,19 +451,15 @@ const ChatWindow = ({ selectedUser, messages, onSendMessage, currentUser, isTypi
         callerAvatar: fromUserAvatar || '',
         callId
       });
-      
-      // Update ref immediately so setTimeout uses correct state
+
       callStatusRef.current = {
         isOpen: true,
         isIncoming: true,
         isConnected: false
       };
 
-      // Set timeout for missed call (45 seconds)
       callTimeoutRef.current = setTimeout(() => {
-        console.log('⏱️ Call timeout check - current status:', callStatusRef.current);
         if (callStatusRef.current.isOpen && callStatusRef.current.isIncoming && !callStatusRef.current.isConnected) {
-          console.log('📵 Call missed - rejecting...');
           socket.emit('reject_call', {
             toUserId: fromUserId,
             fromUserId: currentUser._id || currentUser.id,
@@ -385,20 +468,16 @@ const ChatWindow = ({ selectedUser, messages, onSendMessage, currentUser, isTypi
           });
           resetCallState();
           showCallNotification('info', 'CALL MISSED', `Missed ${callType} call from ${fromUserName}`);
-        } else {
-          console.log('✅ Call was answered before timeout');
         }
       }, 45000);
     };
 
     const handleCallAnswered = async ({ fromUserId, answer }) => {
-      console.log('📞 Call answered:', { fromUserId });
       if (!peerConnectionRef.current || currentCallUserIdRef.current?.toString() !== fromUserId.toString()) {
         return;
       }
 
       try {
-        // Clear the timeout if exists
         if (callTimeoutRef.current) {
           clearTimeout(callTimeoutRef.current);
           callTimeoutRef.current = null;
@@ -406,7 +485,7 @@ const ChatWindow = ({ selectedUser, messages, onSendMessage, currentUser, isTypi
 
         await peerConnectionRef.current.setRemoteDescription(new RTCSessionDescription(answer));
         callStartTimeRef.current = Date.now();
-        
+
         setCallState((prev) => ({
           ...prev,
           status: 'Connected',
@@ -414,12 +493,10 @@ const ChatWindow = ({ selectedUser, messages, onSendMessage, currentUser, isTypi
           isIncoming: false,
           callDuration: 0
         }));
-        
-        // Update ref immediately
+
         callStatusRef.current.isConnected = true;
         callStatusRef.current.isIncoming = false;
 
-        // Start call duration timer
         callTimerRef.current = setInterval(() => {
           setCallState((prev) => ({
             ...prev,
@@ -488,7 +565,6 @@ const ChatWindow = ({ selectedUser, messages, onSendMessage, currentUser, isTypi
       callStartTimeRef.current = Date.now();
       let callId = null;
 
-      // Wait for call_initiated response with callId
       socket.once('call_initiated', ({ callId: receivedCallId }) => {
         callId = receivedCallId;
         setCallState((prev) => ({
@@ -504,13 +580,13 @@ const ChatWindow = ({ selectedUser, messages, onSendMessage, currentUser, isTypi
         isMuted: false,
         isVideoEnabled: callType === 'video',
         callType,
-        status: callType === 'video' ? 'Calling...' : 'Calling...',
+        status: 'Calling...',
         callerName: selectedUser.username,
         callerAvatar: selectedUser.profilePicture || '',
-        callId: null
+        callId: null,
+        callDuration: 0
       });
-      
-      // Update ref immediately
+
       callStatusRef.current = {
         isOpen: true,
         isIncoming: false,
@@ -526,7 +602,6 @@ const ChatWindow = ({ selectedUser, messages, onSendMessage, currentUser, isTypi
         offer
       });
 
-      // Set timeout for no answer (45 seconds)
       callTimeoutRef.current = setTimeout(() => {
         if (callStatusRef.current.isOpen && !callStatusRef.current.isConnected && !callStatusRef.current.isIncoming) {
           socket.emit('end_call', {
@@ -642,7 +717,7 @@ const ChatWindow = ({ selectedUser, messages, onSendMessage, currentUser, isTypi
 
   useEffect(() => {
     scrollToBottom();
-  }, [messages]);
+  }, [messages, recordingPreview]);
 
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -714,6 +789,360 @@ const ChatWindow = ({ selectedUser, messages, onSendMessage, currentUser, isTypi
     if (url && url.startsWith('blob:') && objectUrlsRef.current.has(url)) {
       URL.revokeObjectURL(url);
       objectUrlsRef.current.delete(url);
+    }
+  };
+
+  const updateVoicePlaybackState = (messageId, partialState) => {
+    setVoicePlayback((prev) => ({
+      ...prev,
+      [messageId]: {
+        isPlaying: false,
+        currentTime: 0,
+        duration: 0,
+        progress: 0,
+        ...prev[messageId],
+        ...partialState
+      }
+    }));
+  };
+
+  const handleVoiceAudioRef = (messageId, element) => {
+    if (element) {
+      voiceAudioRefs.current[messageId] = element;
+    } else {
+      delete voiceAudioRefs.current[messageId];
+    }
+  };
+
+  const pauseActiveVoiceMessage = (excludedMessageId = null) => {
+    if (!activeVoiceMessageId) return;
+
+    if (excludedMessageId && activeVoiceMessageId === excludedMessageId) {
+      return;
+    }
+
+    const activeAudio = voiceAudioRefs.current[activeVoiceMessageId];
+    if (activeAudio) {
+      activeAudio.pause();
+    }
+  };
+
+  const handleVoiceLoadedMetadata = (messageId, event, fallbackDuration = 0) => {
+    const audioDuration = Number.isFinite(event.target.duration) && event.target.duration > 0
+      ? event.target.duration
+      : fallbackDuration;
+
+    updateVoicePlaybackState(messageId, {
+      duration: audioDuration,
+      progress: audioDuration ? ((voicePlayback[messageId]?.currentTime || 0) / audioDuration) * 100 : 0
+    });
+  };
+
+  const handleVoiceTimeUpdate = (messageId, event) => {
+    const duration = Number.isFinite(event.target.duration) && event.target.duration > 0
+      ? event.target.duration
+      : 0;
+    const currentTime = event.target.currentTime || 0;
+    updateVoicePlaybackState(messageId, {
+      currentTime,
+      duration,
+      progress: duration ? (currentTime / duration) * 100 : 0
+    });
+  };
+
+  const handleVoicePlay = (messageId) => {
+    pauseActiveVoiceMessage(messageId);
+    setActiveVoiceMessageId(messageId);
+    updateVoicePlaybackState(messageId, { isPlaying: true });
+  };
+
+  const handleVoicePause = (messageId) => {
+    if (activeVoiceMessageId === messageId) {
+      setActiveVoiceMessageId(null);
+    }
+    updateVoicePlaybackState(messageId, { isPlaying: false });
+  };
+
+  const handleVoiceEnded = (messageId) => {
+    if (activeVoiceMessageId === messageId) {
+      setActiveVoiceMessageId(null);
+    }
+    updateVoicePlaybackState(messageId, {
+      isPlaying: false,
+      currentTime: 0,
+      progress: 0
+    });
+  };
+
+  const toggleVoicePlayback = (messageId) => {
+    const audioElement = voiceAudioRefs.current[messageId];
+    if (!audioElement) return;
+
+    if (audioElement.paused) {
+      pauseActiveVoiceMessage(messageId);
+      audioElement.play().catch((error) => {
+        console.error('Unable to play voice message:', error);
+        setNotificationData({
+          type: 'error',
+          title: 'PLAYBACK FAILED',
+          message: 'Unable to play this voice message.'
+        });
+        setShowNotification(true);
+      });
+      return;
+    }
+
+    audioElement.pause();
+  };
+
+  const handleVoiceSeek = (messageId, nextProgress) => {
+    const audioElement = voiceAudioRefs.current[messageId];
+    if (!audioElement || !audioElement.duration) return;
+
+    const clampedProgress = Math.min(100, Math.max(0, nextProgress));
+    audioElement.currentTime = (audioElement.duration * clampedProgress) / 100;
+  };
+
+  const sendVoiceMessage = async () => {
+    if (!recordingPreview?.blob || !selectedUser) return;
+
+    const voiceDurationSeconds = Math.max(1, Math.round(recordingPreview.duration || 0));
+    const fileExtension = recordingPreview.extension || 'webm';
+    const fileName = `voice-message-${Date.now()}.${fileExtension}`;
+    const currentUserId = currentUser._id || currentUser.id;
+    const selectedId = selectedUser._id || selectedUser.id;
+    const optimisticId = `temp_voice_${Date.now()}`;
+
+    const voiceFile = new File([recordingPreview.blob], fileName, {
+      type: recordingPreview.mimeType || 'audio/webm'
+    });
+
+    const optimisticMessage = {
+      _id: optimisticId,
+      sender: currentUserId,
+      receiver: selectedId,
+      content: 'Voice message',
+      messageType: 'voice',
+      fileUrl: recordingPreview.url,
+      fileName,
+      fileSize: voiceFile.size,
+      fileDuration: voiceDurationSeconds,
+      timestamp: new Date(),
+      isOptimistic: true
+    };
+
+    setMessages((prev) => [...prev, optimisticMessage]);
+
+    const formData = new FormData();
+    formData.append('sender', currentUserId);
+    formData.append('receiver', selectedId);
+    formData.append('content', 'Voice message');
+    formData.append('messageType', 'voice');
+    formData.append('fileName', fileName);
+    formData.append('fileSize', voiceFile.size);
+    formData.append('fileDuration', voiceDurationSeconds);
+    formData.append('attachment', voiceFile);
+
+    const previewUrlToCleanup = recordingPreview.url;
+    setRecordingPreview(null);
+
+    try {
+      const response = await messageAPI.sendAttachment(formData);
+      cleanupObjectUrl(previewUrlToCleanup);
+
+      setMessages((prev) =>
+        prev.map((msg) => (msg._id === optimisticId ? response.data : msg))
+      );
+
+      if (socket) {
+        socket.emit('send_message', response.data);
+      }
+    } catch (error) {
+      console.error('Error sending voice message:', error);
+      cleanupObjectUrl(previewUrlToCleanup);
+      setMessages((prev) => prev.filter((msg) => msg._id !== optimisticId));
+      setNotificationData({
+        type: 'error',
+        title: 'VOICE MESSAGE FAILED',
+        message: error?.response?.data?.error || 'Unable to send voice message. Please try again.'
+      });
+      setShowNotification(true);
+    } finally {
+      resetRecordingState();
+    }
+  };
+
+  const finalizeRecording = (shouldKeepPreview = true) => {
+    if (!mediaRecorderRef.current) return;
+
+    if (mediaRecorderRef.current.state !== 'inactive') {
+      mediaRecorderRef.current.stop();
+    }
+
+    setIsRecording(false);
+    clearRecordingTimer();
+
+    if (!shouldKeepPreview) {
+      clearRecordingPreview();
+    }
+  };
+
+  const cancelVoiceRecording = () => {
+    clearRecordingPreview();
+    resetRecordingState();
+  };
+
+  const toggleRecordingPause = () => {
+    if (!mediaRecorderRef.current) return;
+
+    if (mediaRecorderRef.current.state === 'recording') {
+      mediaRecorderRef.current.pause();
+      clearRecordingTimer();
+      setIsRecording(false);
+      return;
+    }
+
+    if (mediaRecorderRef.current.state === 'paused') {
+      mediaRecorderRef.current.resume();
+      recordingStartedAtRef.current = Date.now() - (recordingDuration * 1000);
+      setIsRecording(true);
+      recordingTimerRef.current = setInterval(() => {
+        const elapsedSeconds = Math.min(
+          MAX_VOICE_DURATION_SECONDS,
+          Math.floor((Date.now() - recordingStartedAtRef.current) / 1000)
+        );
+        setRecordingDuration(elapsedSeconds);
+        setRecordingTimeLeft(MAX_VOICE_DURATION_SECONDS - elapsedSeconds);
+
+        if (elapsedSeconds >= MAX_VOICE_DURATION_SECONDS) {
+          finalizeRecording(true);
+        }
+      }, 250);
+    }
+  };
+
+  const startVoiceRecording = async () => {
+    if (!selectedUser) return;
+
+    if (!navigator.mediaDevices?.getUserMedia || typeof MediaRecorder === 'undefined') {
+      setNotificationData({
+        type: 'error',
+        title: 'VOICE MESSAGE NOT SUPPORTED',
+        message: 'Your browser does not support voice recording.'
+      });
+      setShowNotification(true);
+      return;
+    }
+
+    try {
+      clearRecordingPreview();
+
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true
+        }
+      });
+
+      const mimeType = getSupportedAudioMimeType();
+      const mediaRecorder = mimeType ? new MediaRecorder(stream, { mimeType }) : new MediaRecorder(stream);
+
+      recordingStreamRef.current = stream;
+      mediaRecorderRef.current = mediaRecorder;
+      recordingChunksRef.current = [];
+      recordingMimeTypeRef.current = mimeType || mediaRecorder.mimeType || 'audio/webm';
+      recordingStartedAtRef.current = Date.now();
+      setRecordingDuration(0);
+      setRecordingTimeLeft(MAX_VOICE_DURATION_SECONDS);
+      setIsRecording(true);
+
+      mediaRecorder.ondataavailable = (event) => {
+        if (event.data && event.data.size > 0) {
+          recordingChunksRef.current.push(event.data);
+        }
+      };
+
+      mediaRecorder.onerror = (event) => {
+        console.error('Voice recording error:', event.error);
+        setNotificationData({
+          type: 'error',
+          title: 'RECORDING FAILED',
+          message: 'Unable to record voice message.'
+        });
+        setShowNotification(true);
+        resetRecordingState();
+      };
+
+      mediaRecorder.onstop = () => {
+        const durationMs = recordingStartedAtRef.current ? Date.now() - recordingStartedAtRef.current : 0;
+        const hasValidRecording = recordingChunksRef.current.length > 0 && durationMs >= MIN_VOICE_DURATION_MS;
+
+        stopRecordingStream();
+        clearRecordingTimer();
+
+        if (!hasValidRecording) {
+          resetRecordingState();
+          setNotificationData({
+            type: 'info',
+            title: 'VOICE MESSAGE TOO SHORT',
+            message: 'Hold the mic a bit longer to send a voice message.'
+          });
+          setShowNotification(true);
+          return;
+        }
+
+        const resolvedMimeType = recordingMimeTypeRef.current || 'audio/webm';
+        const extension = resolvedMimeType.includes('mp4') ? 'm4a' : resolvedMimeType.includes('ogg') ? 'ogg' : 'webm';
+        const blob = new Blob(recordingChunksRef.current, { type: resolvedMimeType });
+        const previewUrl = createObjectUrl(blob);
+        const durationSeconds = Math.max(1, Math.round(durationMs / 1000));
+
+        setRecordingPreview({
+          blob,
+          url: previewUrl,
+          duration: durationSeconds,
+          mimeType: resolvedMimeType,
+          extension
+        });
+
+        setRecordingDuration(durationSeconds);
+        setRecordingTimeLeft(Math.max(0, MAX_VOICE_DURATION_SECONDS - durationSeconds));
+      };
+
+      mediaRecorder.start(250);
+
+      recordingTimerRef.current = setInterval(() => {
+        const elapsedSeconds = Math.min(
+          MAX_VOICE_DURATION_SECONDS,
+          Math.floor((Date.now() - recordingStartedAtRef.current) / 1000)
+        );
+        setRecordingDuration(elapsedSeconds);
+        setRecordingTimeLeft(MAX_VOICE_DURATION_SECONDS - elapsedSeconds);
+
+        if (elapsedSeconds >= MAX_VOICE_DURATION_SECONDS) {
+          finalizeRecording(true);
+        }
+      }, 250);
+    } catch (error) {
+      console.error('Error starting voice recording:', error);
+      let errorMessage = 'Unable to access your microphone.';
+
+      if (error.name === 'NotAllowedError') {
+        errorMessage = 'Microphone permission was denied. Please allow microphone access.';
+      } else if (error.name === 'NotFoundError') {
+        errorMessage = 'No microphone was found on this device.';
+      } else if (error.name === 'NotReadableError') {
+        errorMessage = 'Microphone is currently being used by another application.';
+      }
+
+      setNotificationData({
+        type: 'error',
+        title: 'MICROPHONE UNAVAILABLE',
+        message: errorMessage
+      });
+      setShowNotification(true);
+      resetRecordingState();
     }
   };
 
@@ -882,6 +1311,72 @@ const ChatWindow = ({ selectedUser, messages, onSendMessage, currentUser, isTypi
     }
   };
 
+  const renderVoiceMessage = (msg) => {
+    const messageId = msg._id || msg.id;
+    const playbackState = voicePlayback[messageId] || {};
+    const duration = playbackState.duration || msg.fileDuration || 0;
+    const currentTime = playbackState.currentTime || 0;
+    const progress = playbackState.progress || 0;
+    const isPlaying = Boolean(playbackState.isPlaying);
+
+    return (
+      <div className="voice-message-card">
+        <button
+          type="button"
+          className={`voice-message-play ${isPlaying ? 'playing' : ''}`}
+          onClick={() => toggleVoicePlayback(messageId)}
+          aria-label={isPlaying ? 'Pause voice message' : 'Play voice message'}
+        >
+          {isPlaying ? <MdPause size={22} /> : <MdPlayArrow size={22} />}
+        </button>
+
+        <div className="voice-message-body">
+          <div className="voice-waveform" onClick={(event) => {
+            const rect = event.currentTarget.getBoundingClientRect();
+            const clickPosition = event.clientX - rect.left;
+            const nextProgress = (clickPosition / rect.width) * 100;
+            handleVoiceSeek(messageId, nextProgress);
+          }}>
+            <div className="voice-waveform-track">
+              <div
+                className="voice-waveform-progress"
+                style={{ width: `${progress}%` }}
+              />
+              {Array.from({ length: 34 }).map((_, index) => (
+                <span
+                  key={`${messageId}_wave_${index}`}
+                  className={`voice-wave-bar ${progress > (index / 34) * 100 ? 'active' : ''}`}
+                  style={{ height: `${10 + ((index * 7) % 18)}px` }}
+                />
+              ))}
+            </div>
+          </div>
+
+          <div className="voice-message-footer">
+            <span className="voice-message-time-label">
+              {formatDuration(currentTime || duration || msg.fileDuration || 0)}
+            </span>
+            <span className="voice-message-duration">
+              {formatDuration(duration || msg.fileDuration || 0)}
+            </span>
+          </div>
+        </div>
+
+        <audio
+          ref={(element) => handleVoiceAudioRef(messageId, element)}
+          src={getFileUrl(msg)}
+          preload="metadata"
+          onLoadedMetadata={(event) => handleVoiceLoadedMetadata(messageId, event, msg.fileDuration || 0)}
+          onTimeUpdate={(event) => handleVoiceTimeUpdate(messageId, event)}
+          onPlay={() => handleVoicePlay(messageId)}
+          onPause={() => handleVoicePause(messageId)}
+          onEnded={() => handleVoiceEnded(messageId)}
+          className="voice-message-audio-hidden"
+        />
+      </div>
+    );
+  };
+
   const renderAttachmentMessage = (msg) => {
     const fileUrl = getFileUrl(msg);
     const displayFileName = getDisplayFileName(msg);
@@ -916,15 +1411,19 @@ const ChatWindow = ({ selectedUser, messages, onSendMessage, currentUser, isTypi
       );
     }
 
-    if (msg.messageType === 'audio' || msg.messageType === 'voice') {
+    if (msg.messageType === 'voice') {
+      return renderVoiceMessage(msg);
+    }
+
+    if (msg.messageType === 'audio') {
       return (
         <div className="audio-preview">
-          {msg.messageType !== 'voice' && <div className="audio-filename">{displayFileName}</div>}
-          {msg.messageType === 'voice' && <div className="voice-duration" style={{fontSize: '0.8rem', color: '#667781', marginBottom: '4px'}}>Voice message • {msg.fileDuration ? msg.fileDuration + "s" : ""}</div>}
+          <div className="audio-filename">{displayFileName}</div>
           <audio controls preload="metadata" className="message-audio">
             <source src={fileUrl} />
             Your browser does not support the audio element.
           </audio>
+          <div className="file-size">{formatFileSize(msg.fileSize)}</div>
         </div>
       );
     }
@@ -934,6 +1433,7 @@ const ChatWindow = ({ selectedUser, messages, onSendMessage, currentUser, isTypi
         <FaFileLines size={24} className="document-icon" />
         <div className="document-info">
           <div className="document-filename">{displayFileName}</div>
+          <div className="file-size">{formatFileSize(msg.fileSize)}</div>
           <div className="document-actions">
             <a href={fileUrl} target="_blank" rel="noreferrer" className="document-link">
               <MdOpenInNew size={16} /> Open
@@ -950,8 +1450,7 @@ const ChatWindow = ({ selectedUser, messages, onSendMessage, currentUser, isTypi
   const renderCallMessage = (msg) => {
     const isMissed = msg.callStatus === 'missed';
     const callTypeLabel = msg.callType === 'video' ? 'Video call' : 'Audio call';
-    const isOutgoing = (msg.sender._id || msg.sender).toString() === (currentUser._id || currentUser.id).toString();
-    
+
     return (
       <div className={`call-message ${isMissed ? 'missed' : 'completed'}`}>
         <div className="call-message-icon">
@@ -1172,21 +1671,96 @@ const ChatWindow = ({ selectedUser, messages, onSendMessage, currentUser, isTypi
           </div>
         )}
 
-        {isRecording ? (
+        {recordingPreview ? (
+          <div className="voice-recording-container voice-preview-container">
+            <button type="button" className="recording-trash" onClick={cancelVoiceRecording}>
+              <MdDeleteOutline size={24} />
+            </button>
+
+            <button
+              type="button"
+              className="recording-preview-play"
+              onClick={() => {
+                const previewAudio = voiceAudioRefs.current.voice_preview;
+                if (!previewAudio) return;
+
+                if (previewAudio.paused) {
+                  previewAudio.play().catch((error) => console.error('Unable to preview voice note:', error));
+                } else {
+                  previewAudio.pause();
+                }
+              }}
+            >
+              {(voicePlayback.voice_preview?.isPlaying) ? <MdPause size={22} /> : <MdPlayArrow size={22} />}
+            </button>
+
+            <div className="recording-preview-content">
+              <div className="recording-preview-label">
+                <MdLock size={14} />
+                <span>Voice message preview</span>
+              </div>
+              <div className="recording-preview-meta">
+                <span>{formatDuration(voicePlayback.voice_preview?.currentTime || recordingPreview.duration)}</span>
+                <span>{formatDuration(recordingPreview.duration)}</span>
+              </div>
+              <div className="recording-preview-wave">
+                <div className="voice-waveform-track">
+                  <div
+                    className="voice-waveform-progress"
+                    style={{ width: `${voicePlayback.voice_preview?.progress || 0}%` }}
+                  />
+                  {Array.from({ length: 26 }).map((_, index) => (
+                    <span
+                      key={`preview_wave_${index}`}
+                      className={`voice-wave-bar ${(voicePlayback.voice_preview?.progress || 0) > (index / 26) * 100 ? 'active' : ''}`}
+                      style={{ height: `${10 + ((index * 5) % 16)}px` }}
+                    />
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            <audio
+              ref={(element) => handleVoiceAudioRef('voice_preview', element)}
+              src={recordingPreview.url}
+              preload="metadata"
+              onLoadedMetadata={(event) => handleVoiceLoadedMetadata('voice_preview', event, recordingPreview.duration)}
+              onTimeUpdate={(event) => handleVoiceTimeUpdate('voice_preview', event)}
+              onPlay={() => handleVoicePlay('voice_preview')}
+              onPause={() => handleVoicePause('voice_preview')}
+              onEnded={() => handleVoiceEnded('voice_preview')}
+              className="voice-message-audio-hidden"
+            />
+
+            <button type="button" className="send-button voice-send" onClick={sendVoiceMessage}>
+              <MdSend size={24} />
+            </button>
+          </div>
+        ) : isRecording || mediaRecorderRef.current?.state === 'paused' ? (
           <div className="voice-recording-container">
-            <div className="recording-trash" onClick={() => setIsRecording(false)}><MdDeleteOutline size={24} /></div>
+            <button type="button" className="recording-trash" onClick={cancelVoiceRecording}>
+              <MdDeleteOutline size={24} />
+            </button>
             <div className="recording-status">
               <span className="recording-dot"></span>
-              <span className="recording-time">0:01</span>
+              <span className="recording-time">{formatDuration(recordingDuration)}</span>
             </div>
             <div className="recording-visualizer">
-              <div className="wave-bar"></div><div className="wave-bar"></div><div className="wave-bar"></div><div className="wave-bar"></div>
-              <div className="wave-bar"></div><div className="wave-bar"></div><div className="wave-bar"></div><div className="wave-bar"></div>
-              <div className="wave-bar"></div><div className="wave-bar"></div><div className="wave-bar"></div><div className="wave-bar"></div>
+              {Array.from({ length: 22 }).map((_, index) => (
+                <div
+                  key={`recording_wave_${index}`}
+                  className={`wave-bar ${isRecording ? 'active' : 'paused'}`}
+                  style={{ height: `${10 + ((index * 9) % 22)}px` }}
+                />
+              ))}
             </div>
-            <div className="recording-pause" onClick={() => setIsRecording(false)}><MdClose size={24} /></div>
-            <div className="recording-once"><MdHistory size={20} /></div>
-            <button className="send-button voice-send" onClick={() => setIsRecording(false)}><MdSend size={24} /></button>
+            <button type="button" className="recording-pause" onClick={toggleRecordingPause}>
+              {isRecording ? <MdPause size={24} /> : <MdMic size={24} />}
+            </button>
+            <div className="recording-once">{formatDuration(recordingTimeLeft)} left</div>
+            <button type="button" className="send-button voice-send" onClick={() => finalizeRecording(true)}>
+              <MdStop size={24} />
+            </button>
           </div>
         ) : (
           <form onSubmit={handleSendMessage} className="message-input-form">
@@ -1255,7 +1829,7 @@ const ChatWindow = ({ selectedUser, messages, onSendMessage, currentUser, isTypi
                 <MdSend size={24} />
               </button>
             ) : (
-              <button type="button" className="send-button" onClick={() => setIsRecording(true)}>
+              <button type="button" className="send-button" onClick={startVoiceRecording}>
                 <BsMic size={24} />
               </button>
             )}
