@@ -1,14 +1,17 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { userAPI, messageAPI, groupAPI } from '../services/api';
+import { userAPI, messageAPI, groupAPI, statusAPI } from '../services/api';
 import { connectSocket, disconnectSocket } from '../services/socket';
 import ChatList from '../components/ChatList';
 import ChatWindow from '../components/ChatWindow';
+import StatusBar from '../components/StatusBar';
+import StatusViewer from '../components/StatusViewer';
+import StatusCreator from '../components/StatusCreator';
 import toast from 'react-hot-toast';
 import './Chat.css';
 import { FaWhatsapp } from 'react-icons/fa';
-import { MdLockOutline, MdChat, MdDonutLarge, MdGroups, MdSettings, MdLaptopMac, MdInsertDriveFile, MdPersonAddAlt1, MdArrowBack, MdEdit } from 'react-icons/md';
+import { MdLockOutline, MdChat, MdDonutLarge, MdGroups, MdLaptopMac, MdInsertDriveFile, MdPersonAddAlt1, MdArrowBack, MdEdit } from 'react-icons/md';
 
 const Chat = () => {
   const navigate = useNavigate();
@@ -23,6 +26,11 @@ const Chat = () => {
   const [isTyping, setIsTyping] = useState(false);
   const [showProfile, setShowProfile] = useState(false);
   const [showCommunities, setShowCommunities] = useState(false);
+  const [showStatus, setShowStatus] = useState(false);
+  const [selectedUserStatus, setSelectedUserStatus] = useState(null);
+  const [showStatusCreator, setShowStatusCreator] = useState(false);
+  const [showStatusCreatorInDrawer, setShowStatusCreatorInDrawer] = useState(false);
+  const [statusRefresh, setStatusRefresh] = useState(0);
   const fileInputRef = useRef(null);
   const selectedUserRef = useRef(null);
   const selectedGroupRef = useRef(null);
@@ -66,11 +74,18 @@ const Chat = () => {
             return {
               ...u,
               lastMessage: formatConversationPreview(summary),
+              lastMessageTimeRaw: summary?.lastMessageTime ? new Date(summary.lastMessageTime) : null,
               lastMessageTime: summary?.lastMessageTime
                 ? new Date(summary.lastMessageTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
                 : '',
               unreadCount: summary?.unreadCount || 0
             };
+          })
+          .sort((a, b) => {
+            // Sort by last message time, most recent first
+            const timeA = a.lastMessageTimeRaw ? new Date(a.lastMessageTimeRaw).getTime() : 0;
+            const timeB = b.lastMessageTimeRaw ? new Date(b.lastMessageTimeRaw).getTime() : 0;
+            return timeB - timeA;
           });
 
         setUsers(prev => {
@@ -96,7 +111,14 @@ const Chat = () => {
     const fetchGroups = async () => {
       try {
         const response = await groupAPI.getUserGroups();
-        setGroups(response.data?.data || []);
+        const groupsWithFormattedTime = (response.data?.data || []).map(group => ({
+          ...group,
+          lastMessageTimeRaw: group.lastMessageTime ? new Date(group.lastMessageTime) : null,
+          lastMessageTime: group.lastMessageTime 
+            ? new Date(group.lastMessageTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+            : ''
+        }));
+        setGroups(groupsWithFormattedTime);
       } catch (error) {
         console.error('Error fetching groups:', error);
         setGroups([]);
@@ -197,17 +219,19 @@ const Chat = () => {
         const uId = u._id || u.id;
         if (isUIDMatch(uId, msgSenderId) || isUIDMatch(uId, msgReceiverId)) {
           if (isUIDMatch(uId, currentUserId)) return u;
+          const messageTimestamp = new Date(data.timestamp);
           return {
             ...u,
             lastMessage: data.messageType && data.messageType !== 'text' ? (data.fileName || data.content || 'Attachment') : data.content,
-            lastMessageTime: new Date(data.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+            lastMessageTimeRaw: messageTimestamp,
+            lastMessageTime: messageTimestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
             unreadCount: (isUIDMatch(uId, msgSenderId) && !isUIDMatch(selectedId, uId)) ? (u.unreadCount || 0) + 1 : (u.unreadCount || 0)
           };
         }
         return u;
       }).sort((a, b) => {
-        const aTime = a.lastMessageTime ? new Date(`1970-01-01T${a.lastMessageTime}`).getTime() : 0;
-        const bTime = b.lastMessageTime ? new Date(`1970-01-01T${b.lastMessageTime}`).getTime() : 0;
+        const aTime = a.lastMessageTimeRaw ? new Date(a.lastMessageTimeRaw).getTime() : 0;
+        const bTime = b.lastMessageTimeRaw ? new Date(b.lastMessageTimeRaw).getTime() : 0;
         return bTime - aTime;
       }));
     };
@@ -270,6 +294,24 @@ const Chat = () => {
           return [...prev.filter(m => !m.isOptimistic), data];
         });
       }
+
+      // Update groups list with new message
+      setGroups(prevGroups => prevGroups.map(g => {
+        const gId = g._id || g.id;
+        if (isUIDMatch(gId, msgGroupId)) {
+          const messageTimestamp = new Date(data.timestamp);
+          return {
+            ...g,
+            lastMessageTimeRaw: messageTimestamp,
+            lastMessageTime: messageTimestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+          };
+        }
+        return g;
+      }).sort((a, b) => {
+        const aTime = a.lastMessageTimeRaw ? new Date(a.lastMessageTimeRaw).getTime() : 0;
+        const bTime = b.lastMessageTimeRaw ? new Date(b.lastMessageTimeRaw).getTime() : 0;
+        return bTime - aTime;
+      }));
     };
 
     socket.on('receive_group_message', handleReceiveGroupMessage);
@@ -371,6 +413,22 @@ const Chat = () => {
 
     socket.on('new_user', handleNewUser);
 
+    // Listen for new status creation and refresh status list
+    const handleStatusCreated = (data) => {
+      console.log('📸 [Socket] New status created by user:', data.status?.userId?.username);
+      // Trigger a refresh of the status list
+      setStatusRefresh(prev => prev + 1);
+      // Show a toast notification
+      if (data.status?.userId?._id && !isUIDMatch(data.status.userId._id, (user._id || user.id))) {
+        toast.success(`${data.status.userId.username} posted a new status`, {
+          icon: '📸',
+          duration: 2000
+        });
+      }
+    };
+
+    socket.on('status_created', handleStatusCreated);
+
     return () => {
       socket.off('receive_message', handleReceiveMessage);
       socket.off('receive_group_message', handleReceiveGroupMessage);
@@ -381,6 +439,7 @@ const Chat = () => {
       socket.off('user_stop_typing');
       socket.off('user_profile_update', handleProfileUpdate);
       socket.off('new_user', handleNewUser);
+      socket.off('status_created', handleStatusCreated);
     };
   }, [user, socket, markActiveConversationAsRead]);
 
@@ -604,12 +663,11 @@ const Chat = () => {
     <div className="chat-layout-dark">
       <div className="chat-sidebar-thin">
         <div className="sidebar-top">
-          <div className={`sidebar-icon ${!showProfile && !showCommunities ? 'active-icon' : ''}`} title="Chats" onClick={() => { setShowProfile(false); setShowCommunities(false); }}><MdChat size={22} /></div>
-          <div className="sidebar-icon" title="Status"><MdDonutLarge size={22} /></div>
-          <div className={`sidebar-icon ${showCommunities ? 'active-icon' : ''}`} title="Communities" onClick={() => { setShowCommunities(!showCommunities); setShowProfile(false); }}><MdGroups size={24} /></div>
+          <div className={`sidebar-icon ${!showProfile && !showCommunities && !showStatus ? 'active-icon' : ''}`} title="Chats" onClick={() => { setShowProfile(false); setShowCommunities(false); setShowStatus(false); setShowStatusCreatorInDrawer(false); }}><MdChat size={22} /></div>
+          <div className={`sidebar-icon ${showStatus ? 'active-icon' : ''}`} title="Status" onClick={() => { setShowStatus(true); setShowStatusCreatorInDrawer(true); setShowProfile(false); setShowCommunities(false); }}><MdDonutLarge size={22} /></div>
+          <div className={`sidebar-icon ${showCommunities ? 'active-icon' : ''}`} title="Communities" onClick={() => { setShowCommunities(!showCommunities); setShowProfile(false); setShowStatus(false); setShowStatusCreatorInDrawer(false); }}><MdGroups size={24} /></div>
         </div>
         <div className="sidebar-bottom">
-          <div className="sidebar-icon" title="Settings"><MdSettings size={24} /></div>
           <div className={`sidebar-icon profile-icon ${showProfile ? 'active-icon' : ''}`} onClick={() => { setShowProfile(true); setShowCommunities(false); }} title="Profile">
             {user?.profilePicture ? (
               <img src={user.profilePicture} alt="S" style={{ width: '30px', height: '30px', borderRadius: '50%', objectFit: 'cover' }} />
@@ -678,6 +736,45 @@ const Chat = () => {
               </div>
             </div>
           </div>
+        ) : showStatus ? (
+          <div className="status-drawer">
+            <div className="drawer-header">
+              <div className="drawer-header-content">
+                <button 
+                  className="back-btn" 
+                  onClick={() => {
+                    setShowStatus(false);
+                    setShowStatusCreatorInDrawer(false);
+                  }}
+                >
+                  <MdArrowBack size={24} />
+                </button>
+                <span>{showStatusCreatorInDrawer ? 'Create Status' : 'Status'}</span>
+              </div>
+            </div>
+            <div className="drawer-content">
+              {showStatusCreatorInDrawer ? (
+                <StatusCreator 
+                  currentUser={user}
+                  onStatusCreated={() => {
+                    setStatusRefresh(prev => prev + 1);
+                    setShowStatusCreatorInDrawer(false);
+                  }}
+                  onBack={() => setShowStatusCreatorInDrawer(false)}
+                  isInDrawer={true}
+                />
+              ) : (
+                <StatusBar
+                  key={statusRefresh}
+                  currentUser={user}
+                  onStatusClick={setSelectedUserStatus}
+                  onCreateStatusClick={() => setShowStatusCreatorInDrawer(true)}
+                  hideCreateButton={true}
+                  refreshTrigger={statusRefresh}
+                />
+              )}
+            </div>
+          </div>
         ) : showCommunities ? (
           <div className="communities-drawer">
             <div className="drawer-header">
@@ -729,16 +826,20 @@ const Chat = () => {
             </div>
           </div>
         ) : (
-          <ChatList
-            users={users}
-            currentUser={user}
-            selectedUser={selectedUser}
-            onSelectUser={handleSelectUser}
-            onLogout={handleLogout}
-            onProfileClick={() => setShowProfile(true)}
-            onCreateGroup={handleCreateGroup}
-            groups={groups}
-          />
+          <>
+            <ChatList
+              users={users}
+              currentUser={user}
+              selectedUser={selectedUser}
+              onSelectUser={handleSelectUser}
+              onLogout={handleLogout}
+              onProfileClick={() => setShowProfile(true)}
+              onCreateGroup={handleCreateGroup}
+              groups={groups}
+              onStatusClick={setSelectedUserStatus}
+              statusRefreshTrigger={statusRefresh}
+            />
+          </>
         )}
       </div>
 
@@ -778,6 +879,31 @@ const Chat = () => {
           </div>
         )}
       </div>
+
+      {/* Status Viewer Modal */}
+      {selectedUserStatus && (
+        <StatusViewer
+          userStatus={selectedUserStatus}
+          currentUserId={user._id || user.id}
+          onClose={() => setSelectedUserStatus(null)}
+          onStatusDeleted={() => {
+            setSelectedUserStatus(null);
+          }}
+        />
+      )}
+
+      {/* Status Creator Modal */}
+      {showStatusCreator && (
+        <StatusCreator
+          currentUser={user}
+          onStatusCreated={() => {
+            // Refresh the status list
+            setStatusRefresh(prev => prev + 1);
+            setShowStatusCreator(false);
+          }}
+          onClose={() => setShowStatusCreator(false)}
+        />
+      )}
     </div>
   );
 };

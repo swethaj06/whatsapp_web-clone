@@ -1,0 +1,358 @@
+.status-viewer-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.97);
+  backdrop-filter: blur(6px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  animation: fadeIn 0.25s ease;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.status-viewer-container {
+  position: relative;
+  width: 90%;
+  max-width: 600px;
+  height: 80vh;
+  background: #000;
+  border-radius: 16px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+  animation: slideUp 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+@keyframes slideUp {
+  from {
+    transform: translateY(30px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.status-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 20px;
+  background: linear-gradient(180deg, rgba(0, 0, 0, 0.8) 0%, transparent 100%);
+  z-index: 10;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.user-info {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: 1;
+}
+
+.user-avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 2px solid rgba(37, 211, 102, 0.4);
+}
+
+.user-details h3 {
+  margin: 0;
+  color: white;
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 0.2px;
+}
+
+.user-details p {
+  margin: 2px 0 0;
+  color: #aaa;
+  font-size: 12px;
+  font-weight: 400;
+}
+
+.header-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.action-btn {
+  background: none;
+  border: none;
+  color: #ccc;
+  cursor: pointer;
+  padding: 8px;
+  font-size: 14px;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-weight: 500;
+  border-radius: 6px;
+}
+
+.action-btn:hover {
+  color: #25d366;
+  background: rgba(37, 211, 102, 0.1);
+}
+
+.action-btn.delete:hover {
+  color: #ff5555;
+  background: rgba(255, 85, 85, 0.1);
+}
+
+.close-btn {
+  background: none;
+  border: none;
+  color: white;
+  cursor: pointer;
+  font-size: 24px;
+  padding: 4px 8px;
+  transition: all 0.2s;
+  border-radius: 6px;
+}
+
+.close-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.status-content {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  position: relative;
+  background: #000;
+}
+
+.text-status {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 40px;
+  text-align: center;
+  animation: fadeIn 0.35s ease;
+}
+
+.text-status p {
+  font-size: 36px;
+  margin: 0;
+  line-height: 1.5;
+  word-wrap: break-word;
+  white-space: pre-wrap;
+  font-weight: 500;
+  letter-spacing: 0.2px;
+  max-width: 90%;
+}
+
+.status-media {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  animation: fadeIn 0.35s ease;
+}
+
+.status-navigation {
+  position: absolute;
+  top: 50%;
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  padding: 0 16px;
+  z-index: 5;
+  transform: translateY(-50%);
+  pointer-events: none;
+}
+
+.nav-btn {
+  background: rgba(255, 255, 255, 0.25);
+  border: none;
+  color: white;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  cursor: pointer;
+  font-size: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  pointer-events: auto;
+  backdrop-filter: blur(4px);
+}
+
+.nav-btn:hover {
+  background: rgba(255, 255, 255, 0.4);
+  transform: scale(1.05);
+}
+
+.nav-btn:active {
+  transform: scale(0.95);
+}
+
+.progress-bars {
+  display: flex;
+  gap: 4px;
+  padding: 6px 16px;
+  background: rgba(0, 0, 0, 0.8);
+}
+
+.progress-bar {
+  flex: 1;
+  height: 2.5px;
+  background: rgba(255, 255, 255, 0.25);
+  border-radius: 2px;
+  overflow: hidden;
+  transition: all 0.2s ease;
+}
+
+.progress-bar.viewed {
+  background: white;
+}
+
+.progress-bar.viewing {
+  animation: loading 2s linear forwards;
+}
+
+@keyframes loading {
+  from {
+    width: 0;
+  }
+  to {
+    width: 100%;
+  }
+}
+
+.viewers-modal {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: linear-gradient(180deg, rgba(0, 0, 0, 0.9) 0%, rgba(0, 0, 0, 0.95) 100%);
+  border-radius: 16px 16px 0 0;
+  padding: 16px;
+  max-height: 300px;
+  overflow-y: auto;
+  z-index: 10;
+  animation: slideUp 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+@keyframes slideUp {
+  from {
+    transform: translateY(100%);
+  }
+  to {
+    transform: translateY(0);
+  }
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.modal-header h4 {
+  margin: 0;
+  color: white;
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 0.2px;
+}
+
+.modal-header button {
+  background: none;
+  border: none;
+  color: #aaa;
+  cursor: pointer;
+  font-size: 18px;
+  transition: color 0.2s;
+}
+
+.modal-header button:hover {
+  color: white;
+}
+
+.viewers-list {
+  max-height: 250px;
+  overflow-y: auto;
+}
+
+.viewers-list::-webkit-scrollbar {
+  width: 4px;
+}
+
+.viewers-list::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.viewers-list::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 2px;
+}
+
+.viewers-list::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.viewer-item {
+  display: flex;
+  gap: 12px;
+  padding: 10px 0;
+  align-items: center;
+  transition: all 0.2s;
+}
+
+.viewer-item:hover {
+  padding-left: 4px;
+}
+
+.viewer-item img {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.viewer-info {
+  flex: 1;
+}
+
+.viewer-info p {
+  margin: 0;
+  color: white;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.viewer-info small {
+  color: #999;
+  font-size: 11px;
+  display: block;
+  margin-top: 2px;
+}

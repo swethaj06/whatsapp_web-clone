@@ -51,9 +51,10 @@
 
 .modal-header h2 {
   font-size: 20px;
-  font-weight: 600;
-  color: #333;
+  font-weight: 800;
+  color: #000000;
   margin: 0;
+  letter-spacing: -0.3px;
 }
 
 .modal-body {
@@ -61,10 +62,11 @@
 }
 
 .modal-body p {
-  font-size: 14px;
-  color: #666;
+  font-size: 15px;
+  color: #54656f;
   margin: 0;
   line-height: 1.5;
+  font-weight: 500;
 }
 
 .modal-actions {
@@ -78,10 +80,11 @@
   border: none;
   border-radius: 8px;
   font-size: 14px;
-  font-weight: 600;
+  font-weight: 700;
   cursor: pointer;
   transition: all 0.3s ease;
   min-width: 100px;
+  letter-spacing: -0.2px;
 }
 
 .modal-btn:disabled {
@@ -132,7 +135,7 @@
 .modal-close-icon {
   font-size: 24px;
   cursor: pointer;
-  color: #666;
+  color: #000000;
   transition: color 0.3s;
 }
 
@@ -215,6 +218,7 @@
 .chip-remove-icon {
   font-size: 16px;
   cursor: pointer;
+  color: #000000;
   transition: color 0.3s;
 }
 

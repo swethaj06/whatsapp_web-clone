@@ -8,6 +8,8 @@ import Signup from './pages/Signup';
 import Chat from './pages/Chat';
 import { Toaster } from 'react-hot-toast';
 import './App.css';
+import './components/WhatsAppTheme.css';
+import './components/WhatsAppAdvancedComponents.css';
 
 function App() {
   const [isLoading, setIsLoading] = useState(true);

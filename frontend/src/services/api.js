@@ -74,4 +74,14 @@ export const groupAPI = {
   getGroupMessages: (groupId) => apiClient.get(`/groups/${groupId}/messages`)
 };
 
+// Status APIs
+export const statusAPI = {
+  createStatus: (statusData) => apiClient.post('/status', statusData),
+  getStatuses: () => apiClient.get('/status'),
+  getUserStatuses: (userId) => apiClient.get(`/status/user/${userId}`),
+  markStatusAsViewed: (statusId) => apiClient.patch(`/status/${statusId}/view`),
+  getStatusViewers: (statusId) => apiClient.get(`/status/${statusId}/viewers`),
+  deleteStatus: (statusId) => apiClient.delete(`/status/${statusId}`)
+};
+
 export default apiClient;

@@ -71,9 +71,30 @@ exports.getUserGroups = async (req, res) => {
       .populate('createdBy', 'username email')
       .sort({ createdAt: -1 });
 
+    // Fetch last message for each group for sorting
+    const groupsWithLastMessage = await Promise.all(
+      groups.map(async (group) => {
+        const lastMessage = await Message.findOne({ group: group._id })
+          .sort({ timestamp: -1 })
+          .select('timestamp');
+        
+        return {
+          ...group.toObject(),
+          lastMessageTime: lastMessage?.timestamp || group.createdAt
+        };
+      })
+    );
+
+    // Sort by last message time
+    groupsWithLastMessage.sort((a, b) => {
+      const timeA = new Date(a.lastMessageTime).getTime();
+      const timeB = new Date(b.lastMessageTime).getTime();
+      return timeB - timeA;
+    });
+
     res.status(200).json({
       success: true,
-      data: groups
+      data: groupsWithLastMessage
     });
   } catch (error) {
     console.error('Error fetching user groups:', error);

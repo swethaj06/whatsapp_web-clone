@@ -71,6 +71,24 @@ const getSupportedAudioMimeType = () => {
   return supportedType || '';
 };
 
+const formatDateSeparator = (date) => {
+  const today = new Date();
+  const yesterday = new Date(today);
+  yesterday.setDate(yesterday.getDate() - 1);
+
+  const messageDate = new Date(date);
+  const isToday = messageDate.toDateString() === today.toDateString();
+  const isYesterday = messageDate.toDateString() === yesterday.toDateString();
+
+  if (isToday) {
+    return 'Today';
+  } else if (isYesterday) {
+    return 'Yesterday';
+  } else {
+    return messageDate.toLocaleDateString([], { day: 'numeric', month: 'short', year: messageDate.getFullYear() !== today.getFullYear() ? 'numeric' : undefined });
+  }
+};
+
 const ChatWindow = ({ selectedUser, selectedGroup, messages, onSendMessage, currentUser, isTyping, socket, onClearChat, onDeleteChat, setMessages, onLeaveGroup }) => {
   const [messageText, setMessageText] = useState('');
   const [showDropdown, setShowDropdown] = useState(false);
@@ -1869,64 +1887,77 @@ const ChatWindow = ({ selectedUser, selectedGroup, messages, onSendMessage, curr
               <p>No messages yet. Start the conversation!</p>
             </div>
           ) : (
-            messages.map((msg) => {
+            messages.map((msg, index) => {
               const messageId = msg._id || msg.id;
               const isMatchedMessage = filteredSearchMatches.some((match) => match.messageId === messageId);
               const isActiveMatchedMessage = activeSearchMatch?.messageId === messageId;
 
+              // Check if we need to show date separator
+              const previousMsg = index > 0 ? messages[index - 1] : null;
+              const currentMsgDate = new Date(msg.timestamp).toDateString();
+              const previousMsgDate = previousMsg ? new Date(previousMsg.timestamp).toDateString() : null;
+              const shouldShowDateSeparator = !previousMsg || currentMsgDate !== previousMsgDate;
+
               return (
-              <div
-                key={messageId}
-                ref={(element) => {
-                  if (element) {
-                    messageRefs.current[messageId] = element;
-                  } else {
-                    delete messageRefs.current[messageId];
-                  }
-                }}
-                className={`message ${(msg.sender._id || msg.sender).toString() === (currentUser._id || currentUser.id).toString() ? 'sent' : 'received'} ${isMatchedMessage ? 'search-match' : ''} ${isActiveMatchedMessage ? 'search-match-active' : ''}`}
-              >
-                <div className="message-content">
-                  {msg.messageType === 'call' ? (
-                    <div className="call-message-wrapper">
-                      {renderCallMessage(msg)}
+                <React.Fragment key={`${messageId}-wrapper`}>
+                  {shouldShowDateSeparator && (
+                    <div className="date-separator">
+                      <span className="date-separator-text">{formatDateSeparator(msg.timestamp)}</span>
                     </div>
-                  ) : msg.messageType && msg.messageType !== 'text' ? (
-                    <div className={`attachment-message attachment-${msg.messageType}`}>
-                      {renderAttachmentMessage(msg)}
-                    </div>
-                  ) : (
-                    <p>{highlightMessageText(msg.content)}</p>
                   )}
-                  <div className="message-meta">
-                    {msg.isOptimistic && (
-                      <span className="message-time sending">sending...</span>
-                    )}
-                    {!msg.isOptimistic && (
-                      <>
-                        <span className="message-time">
-                          {new Date(msg.timestamp).toLocaleTimeString([], {
-                            hour: '2-digit',
-                            minute: '2-digit'
-                          })}
-                        </span>
-                        {(msg.sender?._id || msg.sender)?.toString() === (currentUser?._id || currentUser?.id)?.toString() && (
-                          <span className="tick-icons">
-                            {msg.isRead ? (
-                              <BiCheckDouble className="read-receipt" title="Read" />
-                            ) : msg.isDelivered ? (
-                              <BiCheckDouble className="delivered-receipt" title="Delivered" />
-                            ) : (
-                              <BiCheck className="sent-receipt" title="Sent" />
-                            )}
-                          </span>
+                  <div
+                    key={messageId}
+                    ref={(element) => {
+                      if (element) {
+                        messageRefs.current[messageId] = element;
+                      } else {
+                        delete messageRefs.current[messageId];
+                      }
+                    }}
+                    className={`message ${(msg.sender._id || msg.sender).toString() === (currentUser._id || currentUser.id).toString() ? 'sent' : 'received'} ${isMatchedMessage ? 'search-match' : ''} ${isActiveMatchedMessage ? 'search-match-active' : ''}`}
+                  >
+                    <div className="message-content">
+                      {msg.messageType === 'call' ? (
+                        <div className="call-message-wrapper">
+                          {renderCallMessage(msg)}
+                        </div>
+                      ) : msg.messageType && msg.messageType !== 'text' ? (
+                        <div className={`attachment-message attachment-${msg.messageType}`}>
+                          {renderAttachmentMessage(msg)}
+                        </div>
+                      ) : (
+                        <p>{highlightMessageText(msg.content)}</p>
+                      )}
+                      <div className="message-meta">
+                        {msg.isOptimistic && (
+                          <span className="message-time sending">sending...</span>
                         )}
-                      </>
-                    )}
+                        {!msg.isOptimistic && (
+                          <>
+                            <span className="message-time">
+                              {new Date(msg.timestamp).toLocaleTimeString([], {
+                                hour: '2-digit',
+                                minute: '2-digit'
+                              })}
+                            </span>
+                            {(msg.sender?._id || msg.sender)?.toString() === (currentUser?._id || currentUser?.id)?.toString() && (
+                              <span className="tick-icons">
+                                {msg.isRead ? (
+                                  <BiCheckDouble className="read-receipt" title="Read" />
+                                ) : msg.isDelivered ? (
+                                  <BiCheckDouble className="delivered-receipt" title="Delivered" />
+                                ) : (
+                                  <BiCheck className="sent-receipt" title="Sent" />
+                                )}
+                              </span>
+                            )}
+                          </>
+                        )}
+                      </div>
+                    </div>
                   </div>
-                </div>
-              </div>
-            );
+                </React.Fragment>
+              );
             })
           )}
           <div ref={messagesEndRef} />

@@ -1,0 +1,228 @@
+.status-section {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background-color: #fff;
+  border-radius: 8px;
+  padding: 0;
+  margin: 0;
+}
+
+.status-section-header {
+  padding: 16px 20px;
+  border-bottom: 1px solid #e5e5e5;
+  background-color: #fafafa;
+  border-radius: 8px 8px 0 0;
+}
+
+.status-section-header h3 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 800;
+  color: #000000;
+  letter-spacing: -0.3px;
+}
+
+.status-section-subtitle {
+  margin: 4px 0 0 0;
+  font-size: 13px;
+  color: #54656f;
+  font-weight: 500;
+}
+
+.status-section-list {
+  flex: 1;
+  overflow-y: auto;
+  background-color: #fff;
+}
+
+.status-section-list::-webkit-scrollbar {
+  width: 6px;
+}
+
+.status-section-list::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.status-section-list::-webkit-scrollbar-thumb {
+  background: #ccc;
+  border-radius: 3px;
+}
+
+.status-section-list::-webkit-scrollbar-thumb:hover {
+  background: #aaa;
+}
+
+.status-section-empty,
+.status-section-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  color: #999;
+  text-align: center;
+  padding: 40px 20px;
+}
+
+.status-section-empty p,
+.status-section-loading {
+  margin: 16px 0 0 0;
+  font-size: 14px;
+  color: #54656f;
+  font-weight: 600;
+}
+
+.status-section-empty small {
+  margin: 8px 0 0 0;
+  font-size: 12px;
+  color: #99a3ac;
+  display: block;
+  font-weight: 500;
+}
+
+.status-section-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  border-bottom: 1px solid #f0f0f0;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+
+.status-section-item:hover {
+  background-color: #f5f5f5;
+}
+
+.status-section-item.unviewed {
+  background-color: #fff9e6;
+}
+
+.status-section-item.unviewed:hover {
+  background-color: #fff3cc;
+}
+
+/* Special styling for "Your Story" */
+.status-section-item.my-story {
+  background: linear-gradient(135deg, rgba(37, 211, 102, 0.08) 0%, rgba(37, 211, 102, 0.04) 100%);
+  border-left: 3px solid #25d366;
+}
+
+.status-section-item.my-story:hover {
+  background: linear-gradient(135deg, rgba(37, 211, 102, 0.15) 0%, rgba(37, 211, 102, 0.08) 100%);
+}
+
+.status-section-avatar {
+  position: relative;
+  flex-shrink: 0;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  overflow: hidden;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+}
+
+.status-section-avatar-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.status-section-default-avatar {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-weight: 600;
+  font-size: 18px;
+}
+
+.status-section-unviewed-indicator {
+  position: absolute;
+  bottom: -2px;
+  right: -2px;
+  width: 14px;
+  height: 14px;
+  background-color: #25d366;
+  border: 3px solid white;
+  border-radius: 50%;
+}
+
+.status-section-info-name {
+  font-size: 15px;
+  font-weight: 700;
+  color: #000000;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.status-section-info-time {
+  font-size: 13px;
+  color: #99a3ac;
+  font-weight: 500;
+  margin-top: 2px;
+}
+
+.status-section-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.status-section-username {
+  font-size: 15px;
+  font-weight: 700;
+  color: #000000;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  letter-spacing: -0.3px;
+}
+
+.status-section-meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: #99a3ac;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-weight: 600;
+}
+
+.status-section-count {
+  display: block;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.status-section-type {
+  display: flex;
+  align-items: center;
+  color: #128c7e;
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+  .status-section-item {
+    padding: 10px 12px;
+    gap: 10px;
+  }
+
+  .status-section-avatar {
+    width: 44px;
+    height: 44px;
+  }
+
+  .status-section-username {
+    font-size: 13px;
+  }
+}

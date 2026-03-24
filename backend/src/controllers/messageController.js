@@ -202,6 +202,11 @@ exports.getConversationSummaries = async (req, res) => {
             }
           }
         }
+      },
+      {
+        $sort: {
+          lastMessageTime: -1
+        }
       }
     ]);
 

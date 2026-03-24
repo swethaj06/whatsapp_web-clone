@@ -63,11 +63,13 @@ app.get('/api/health', (req, res) => {
 const userRoutes = require('./routes/userRoutes');
 const messageRoutes = require('./routes/messageRoutes');
 const groupRoutes = require('./routes/groupRoutes');
+const statusRoutes = require('./routes/statusRoutes');
 
 // Use routes
 app.use('/api/users', userRoutes);
 app.use('/api/messages', messageRoutes);
 app.use('/api/groups', groupRoutes);
+app.use('/api/status', statusRoutes);
 
 const ActivityLog = require('./models/ActivityLog');
 const activeCalls = new Map();

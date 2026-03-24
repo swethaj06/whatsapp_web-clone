@@ -1,19 +1,82 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
 
 :root {
-  --wa-green: #008069;
-  --wa-green-light: #25D366;
-  --wa-teal: #128C7E;
+  /* WhatsApp Official Colors - Enhanced */
+  --wa-green: #00a884;
+  --wa-green-dark: #008069;
+  --wa-green-light: #25d366;
+  --wa-green-lighter: #e7f5f2;
+  --wa-green-bg: #dcf8c6;
+  --wa-teal: #128c7e;
   --wa-teal-light: #dcf8c6;
+  
+  /* Accent Colors */
+  --wa-blue: #007bff;
+  --wa-blue-light: #e7f1ff;
+  --wa-red: #dc3545;
+  --wa-red-light: #ffe7e7;
+  --wa-yellow: #ffc107;
+  --wa-yellow-light: #fff8e7;
+  
+  /* Dark Theme (unused but defined) */
   --wa-dark: #111b21;
   --wa-dark-panel: #202c33;
   --wa-dark-border: #222d34;
+  
+  /* Light Theme - Main */
   --wa-bg: #ece5dd;
   --wa-panel-bg: #ffffff;
-  --wa-sidebar-bg: #f0f2f5;
-  --wa-border: #e9edef;
-  --wa-text: #111b21;
-  --wa-text-muted: #667781;
+  --wa-sidebar-bg: #f7f8f9;
+  --wa-header-bg: #ffffff;
+  --wa-border: #d9d9d9;
+  --wa-border-light: #e5e5e5;
+  
+  /* Text Colors - Enhanced for better visibility */
+  --wa-text: #0a0e11;
+  --wa-text-secondary: #3a4245;
+  --wa-text-tertiary: #667781;
+  --wa-text-muted: #99a3ac;
+  
+  /* Message Colors */
+  --wa-msg-sent: #d0f4e8;
+  --wa-msg-received: #f0f0f0;
+  --wa-msg-text-sent: #000000;
+  --wa-msg-text-received: #000000;
+  
+  /* Shadows - Enhanced */
+  --wa-shadow-xs: 0 0.5px 1px rgba(0, 0, 0, 0.06);
+  --wa-shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.08);
+  --wa-shadow-md: 0 2px 8px rgba(0, 0, 0, 0.1);
+  --wa-shadow-lg: 0 5px 15px rgba(0, 0, 0, 0.12);
+  --wa-shadow-xl: 0 10px 25px rgba(0, 0, 0, 0.15);
+  
+  /* Transitions */
+  --wa-transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  --wa-transition-fast: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+  --wa-transition-slow: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  
+  /* Border Radius */
+  --wa-radius-sm: 4px;
+  --wa-radius-md: 8px;
+  --wa-radius-lg: 12px;
+  --wa-radius-full: 999px;
+  
+  /* Font Weights */
+  --wa-font-light: 300;
+  --wa-font-normal: 400;
+  --wa-font-medium: 500;
+  --wa-font-semibold: 600;
+  --wa-font-bold: 700;
+  --wa-font-extrabold: 800;
+  
+  /* Z-Index */
+  --wa-z-dropdown: 100;
+  --wa-z-sticky: 20;
+  --wa-z-fixed: 1000;
+  --wa-z-modal-backdrop: 1040;
+  --wa-z-modal: 1050;
+  --wa-z-popover: 1060;
+  --wa-z-tooltip: 1070;
 }
 
 * {
@@ -22,28 +85,136 @@
   padding: 0;
 }
 
-body {
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-  background-color: #d1d7db;
-  color: var(--wa-text);
-  overflow: hidden;
+html, body {
+  width: 100%;
+  height: 100%;
 }
 
-/* Base styles to give premium desktop app feel */
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  background-color: #f0f0f0;
+  color: var(--wa-text);
+  overflow: hidden;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  font-weight: 400;
+  letter-spacing: -0.02em;
+  line-height: 1.5;
+}
+
+/* Premium desktop app feel */
 #root {
   display: flex;
   align-items: center;
   justify-content: center;
   height: 100vh;
   width: 100vw;
-  background-image: linear-gradient(to bottom, var(--wa-green) 0%, var(--wa-green) 130px, #d1d7db 130px, #d1d7db 100%);
+  background: linear-gradient(135deg, #f5f5f5 0%, #e8ecf0 100%);
 }
 
 button {
   cursor: pointer;
   font-family: inherit;
+  transition: var(--wa-transition);
+  border: none;
 }
 
-input {
+input, textarea, select {
   font-family: inherit;
+}
+
+textarea {
+  resize: vertical;
+}
+
+/* Custom scrollbar for all elements */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #b3b3b3;
+  border-radius: 4px;
+  transition: var(--wa-transition);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #888888;
+}
+
+/* Firefox scrollbar */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #b3b3b3 transparent;
+}
+
+/* ==========================================
+   UTILITY CLASSES
+   ========================================== */
+
+.text-center {
+  text-align: center;
+}
+
+.text-left {
+  text-align: left;
+}
+
+.text-right {
+  text-align: right;
+}
+
+.flex {
+  display: flex;
+}
+
+.flex-col {
+  flex-direction: column;
+}
+
+.flex-center {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.flex-between {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.gap-1 { gap: 4px; }
+.gap-2 { gap: 8px; }
+.gap-3 { gap: 12px; }
+.gap-4 { gap: 16px; }
+.gap-5 { gap: 20px; }
+
+.p-1 { padding: 4px; }
+.p-2 { padding: 8px; }
+.p-3 { padding: 12px; }
+.p-4 { padding: 16px; }
+.p-5 { padding: 20px; }
+
+.rounded {
+  border-radius: var(--wa-radius-md);
+}
+
+.rounded-full {
+  border-radius: var(--wa-radius-full);
+}
+
+.shadow {
+  box-shadow: var(--wa-shadow-md);
+}
+
+.truncate {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }

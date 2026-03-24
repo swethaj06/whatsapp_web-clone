@@ -70,9 +70,10 @@
 
 .notification-text h2 {
   font-size: 22px;
-  font-weight: 700;
+  font-weight: 800;
   margin: 0 0 8px 0;
-  color: #333;
+  color: #000000;
+  letter-spacing: -0.3px;
 }
 
 .notification-success .notification-text h2 {
@@ -84,10 +85,11 @@
 }
 
 .notification-text p {
-  font-size: 14px;
-  color: #666;
+  font-size: 15px;
+  color: #54656f;
   margin: 0;
   line-height: 1.6;
+  font-weight: 500;
 }
 
 .notification-close {

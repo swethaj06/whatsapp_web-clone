@@ -17,7 +17,8 @@ exports.protect = async (req, res, next) => {
       console.log('🔐 [Auth] No token found');
       return res.status(401).json({ 
         success: false, 
-        message: 'Not authorized to access this route' 
+        message: 'Not authorized to access this route',
+        code: 'NO_TOKEN'
       });
     }
 
@@ -29,9 +30,10 @@ exports.protect = async (req, res, next) => {
 
     if (!user) {
       console.log('🔐 [Auth] User not found for userId:', decoded.userId);
-      return res.status(404).json({ 
+      return res.status(401).json({ 
         success: false, 
-        message: 'User not found' 
+        message: 'User account no longer exists. Please login again.',
+        code: 'USER_NOT_FOUND'
       });
     }
 
@@ -40,9 +42,20 @@ exports.protect = async (req, res, next) => {
     next();
   } catch (error) {
     console.log('🔐 [Auth] Error:', error.message);
+    
+    // Check if it's a token expiration error
+    if (error.name === 'TokenExpiredError') {
+      return res.status(401).json({ 
+        success: false, 
+        message: 'Token expired. Please login again.',
+        code: 'TOKEN_EXPIRED'
+      });
+    }
+    
     return res.status(401).json({ 
       success: false, 
       message: 'Not authorized to access this route',
+      code: 'INVALID_TOKEN',
       error: error.message 
     });
   }

@@ -1,0 +1,600 @@
+/* ============================================
+   WHATSAPP WEB CLONE - ADVANCED COMPONENTS
+   Enhanced authenticated interaction patterns
+   ============================================ */
+
+/* ==========================================
+   ENHANCED MESSAGE BUBBLE STYLES
+   ========================================== */
+
+.message-group {
+  display: flex;
+  flex-direction: column;
+  margin-bottom: 10px;
+  animation: fadeIn 0.2s ease-in;
+}
+
+.message-group.sent {
+  align-items: flex-end;
+}
+
+.message-group.received {
+  align-items: flex-start;
+}
+
+.message-bubble {
+  position: relative;
+  margin-bottom: 2px;
+  animation: slideIn 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.message-bubble-content {
+  display: flex;
+  align-items: flex-end;
+  gap: 6px;
+}
+
+.message-bubble-content.sent {
+  flex-direction: row;
+}
+
+.message-bubble-content.received {
+  flex-direction: row-reverse;
+}
+
+.message-tail {
+  width: 8px;
+  height: 14px;
+}
+
+/* Sent message tail */
+.message-bubble.sent .message-tail {
+  background: linear-gradient(135deg, #d9f4ed 0%, #d0f4e8 100%);
+  clip-path: polygon(0 0, 100% 0, 100% 100%);
+  margin: 0 -6px 0 0;
+}
+
+/* Received message tail */
+.message-bubble.received .message-tail {
+  background: #ffffff;
+  clip-path: polygon(0 0, 0 100%, 100% 100%);
+  margin: 0 0 0 -6px;
+}
+
+/* ==========================================
+   REACTION SYSTEM
+   ========================================== */
+
+.message-reactions {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+  margin-top: 6px;
+  padding: 4px 8px;
+  background: rgba(0, 0, 0, 0.04);
+  border-radius: 8px;
+  width: fit-content;
+  font-size: 14px;
+}
+
+.reaction {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 7px;
+  background: rgba(255, 255, 255, 0.8);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+}
+
+.reaction:hover {
+  background: rgba(255, 255, 255, 1);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+  transform: scale(1.1);
+}
+
+.reaction-count {
+  font-size: 12px;
+  color: var(--wa-text-tertiary);
+  font-weight: 600;
+}
+
+/* ==========================================
+   AUDIO MESSAGE PLAYER
+   ========================================== */
+
+.audio-message-player {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 240px;
+  padding: 2px 0;
+}
+
+.audio-play-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: rgba(0, 168, 132, 0.12);
+  color: var(--wa-green);
+  cursor: pointer;
+  border: none;
+  transition: all 0.2s ease;
+  flex-shrink: 0;
+}
+
+.audio-play-btn:hover {
+  background: rgba(0, 168, 132, 0.2);
+  transform: scale(1.05);
+}
+
+.audio-play-btn.playing {
+  animation: pulse 1s infinite;
+}
+
+.audio-progress {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 4px;
+  background: rgba(0, 0, 0, 0.1);
+  border-radius: 2px;
+  cursor: pointer;
+  overflow: hidden;
+}
+
+.audio-progress-bar {
+  height: 100%;
+  background: var(--wa-green);
+  border-radius: 2px;
+  width: 0%;
+  transition: width 0.1s linear;
+}
+
+.audio-time {
+  font-size: 12px;
+  color: var(--wa-text-tertiary);
+  font-weight: 600;
+  white-space: nowrap;
+  min-width: 32px;
+  text-align: right;
+}
+
+/* ==========================================
+   VIDEO & MEDIA MESSAGES
+   ========================================== */
+
+.media-message {
+  position: relative;
+  border-radius: 12px;
+  overflow: hidden;
+  background: #000;
+  max-width: 280px;
+  max-height: 360px;
+}
+
+.media-message-img {
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: cover;
+}
+
+.media-play-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.3);
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.media-message:hover .media-play-overlay {
+  opacity: 1;
+}
+
+.media-play-btn {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.9);
+  color: #000;
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-size: 20px;
+  transition: all 0.2s ease;
+}
+
+.media-play-btn:hover {
+  background: white;
+  transform: scale(1.1);
+}
+
+/* ==========================================
+   LINK PREVIEW
+   ========================================== */
+
+.link-preview {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  border-radius: 10px;
+  overflow: hidden;
+  background: var(--wa-panel-bg);
+  margin-top: 4px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.link-preview:hover {
+  background: rgba(0, 0, 0, 0.02);
+}
+
+.link-preview-image {
+  width: 100%;
+  height: 140px;
+  object-fit: cover;
+  background: linear-gradient(135deg, #e0e0e0 0%, #f5f5f5 100%);
+}
+
+.link-preview-content {
+  padding: 8px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.link-preview-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--wa-text);
+  line-height: 1.3;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.link-preview-description {
+  font-size: 12px;
+  color: var(--wa-text-tertiary);
+  line-height: 1.3;
+  display: -webkit-box;
+  -webkit-line-clamp: 1;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.link-preview-domain {
+  font-size: 11px;
+  color: #00a884;
+  font-weight: 600;
+}
+
+/* ==========================================
+   QUOTED MESSAGE
+   ========================================== */
+
+.quoted-message {
+  display: flex;
+  gap: 8px;
+  padding: 8px 12px;
+  background: rgba(0, 0, 0, 0.04);
+  border-left: 3px solid var(--wa-green);
+  border-radius: 4px;
+  margin-bottom: 8px;
+}
+
+.quoted-message-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 4px;
+  background: linear-gradient(135deg, var(--wa-green-dark), var(--wa-green));
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.quoted-message-content {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  flex: 1;
+}
+
+.quoted-message-author {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--wa-green-dark);
+}
+
+.quoted-message-text {
+  font-size: 13px;
+  color: var(--wa-text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ==========================================
+   SYSTEM MESSAGES
+   ========================================== */
+
+.system-message {
+  display: flex;
+  justify-content: center;
+  margin: 16px 0;
+  padding: 8px 0;
+}
+
+.system-message-content {
+  background: rgba(0, 0, 0, 0.04);
+  padding: 6px 12px;
+  border-radius: 12px;
+  font-size: 12px;
+  color: var(--wa-text-tertiary);
+  font-weight: 500;
+  text-align: center;
+  max-width: 70%;
+}
+
+.system-message-content.info {
+  background: rgba(0, 168, 132, 0.08);
+  color: var(--wa-green-dark);
+  border: 1px solid rgba(0, 168, 132, 0.2);
+}
+
+.system-message-content.warning {
+  background: rgba(255, 152, 0, 0.08);
+  color: #e65100;
+  border: 1px solid rgba(255, 152, 0, 0.2);
+}
+
+/* ==========================================
+   EDITED MESSAGE INDICATOR
+   ========================================== */
+
+.message-edited {
+  font-size: 11px;
+  color: var(--wa-text-tertiary);
+  font-weight: 600;
+  margin-left: 4px;
+  letter-spacing: 0.3px;
+}
+
+.message-deleted {
+  font-style: italic;
+  color: var(--wa-text-tertiary);
+  opacity: 0.7;
+}
+
+/* ==========================================
+   MESSAGE STATUS INDICATORS
+   ========================================== */
+
+.message-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  margin-left: 4px;
+}
+
+.status-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 14px;
+  font-size: 10px;
+}
+
+.status-icon.sent {
+  color: #8a99a6;
+}
+
+.status-icon.delivered {
+  color: #8a99a6;
+  transform: scaleX(1);
+}
+
+.status-icon.read {
+  color: #31a24c;
+  font-weight: 700;
+}
+
+/* ==========================================
+   HEADER ENHANCED STYLES
+   ========================================== */
+
+.chat-header-enhanced {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 20px;
+  background: linear-gradient(135deg, #ffffff 0%, #f9fafb 100%);
+  border-bottom: 1px solid var(--wa-border);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+
+.header-user-presence {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.presence-indicator {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: #31a24c;
+  box-shadow: 0 0 0 2px rgba(49, 162, 76, 0.12);
+  animation: pulse 2s infinite;
+}
+
+.presence-indicator.offline {
+  background: #96a3b1;
+  animation: none;
+}
+
+.header-typing-indicator {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  height: 16px;
+}
+
+.header-typing-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--wa-green);
+  animation: wave 1.4s infinite;
+}
+
+.header-typing-dot:nth-child(2) {
+  animation-delay: 0.2s;
+}
+
+.header-typing-dot:nth-child(3) {
+  animation-delay: 0.4s;
+}
+
+@keyframes wave {
+  0%, 60%, 100% {
+    transform: translateY(0);
+    opacity: 1;
+  }
+  30% {
+    transform: translateY(-8px);
+    opacity: 0.8;
+  }
+}
+
+/* ==========================================
+   SEARCH HIGHLIGHT IN MESSAGES
+   ========================================== */
+
+.search-highlight {
+  background: #fff3a3;
+  padding: 2px 3px;
+  border-radius: 3px;
+  font-weight: 600;
+}
+
+.search-highlight.active {
+  background: #ffd54f;
+  box-shadow: 0 0 0 2px #ffeb3b;
+}
+
+/* ==========================================
+   EMOJI & STICKER
+   ========================================== */
+
+.emoji-picker-button {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+  transition: all 0.2s ease;
+  color: var(--wa-text-tertiary);
+}
+
+.emoji-picker-button:hover {
+  background: var(--wa-green-lighter);
+  color: var(--wa-green);
+  transform: scale(1.1) rotate(20deg);
+}
+
+.emoji-picker-button.active {
+  background: var(--wa-green-lighter);
+  color: var(--wa-green);
+}
+
+/* ==========================================
+   INFLIGHT MESSAGE (UPLOADING)
+   ========================================== */
+
+.message-uploading {
+  position: relative;
+  opacity: 0.7;
+}
+
+.upload-progress-ring {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.05);
+  border-radius: 14px;
+}
+
+.upload-progress-circle {
+  width: 40px;
+  height: 40px;
+  border: 2px solid rgba(0, 168, 132, 0.1);
+  border-top-color: var(--wa-green);
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* ==========================================
+   RESPONSIVE & MOBILE
+   ========================================== */
+
+@media (max-width: 768px) {
+  .message {
+    max-width: 85%;
+  }
+  
+  .media-message {
+    max-width: 240px;
+    max-height: 320px;
+  }
+  
+  .message-input {
+    max-height: 80px;
+  }
+}
+
+@media (max-width: 480px) {
+  .message {
+    max-width: 90%;
+  }
+  
+  .media-message {
+    max-width: 100%;
+    max-height: 240px;
+  }
+  
+  .audio-message-player {
+    min-width: 200px;
+  }
+}
