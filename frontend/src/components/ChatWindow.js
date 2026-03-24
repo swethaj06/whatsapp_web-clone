@@ -30,7 +30,7 @@ import { IoMdInformationCircleOutline } from 'react-icons/io';
 import { AiOutlineClear } from 'react-icons/ai';
 import { FaFileLines, FaImage, FaHeadphones } from 'react-icons/fa6';
 import { BiCheckDouble, BiCheck } from 'react-icons/bi';
-import { messageAPI, normalizeFileUrl } from '../services/api';
+import { messageAPI, groupAPI, normalizeFileUrl } from '../services/api';
 import ConfirmationModal from './ConfirmationModal';
 import NotificationModal from './NotificationModal';
 import './ChatWindow.css';
@@ -71,7 +71,7 @@ const getSupportedAudioMimeType = () => {
   return supportedType || '';
 };
 
-const ChatWindow = ({ selectedUser, messages, onSendMessage, currentUser, isTyping, socket, onClearChat, onDeleteChat, setMessages }) => {
+const ChatWindow = ({ selectedUser, selectedGroup, messages, onSendMessage, currentUser, isTyping, socket, onClearChat, onDeleteChat, setMessages, onLeaveGroup }) => {
   const [messageText, setMessageText] = useState('');
   const [showDropdown, setShowDropdown] = useState(false);
   const [showAttachments, setShowAttachments] = useState(false);
@@ -80,6 +80,7 @@ const ChatWindow = ({ selectedUser, messages, onSendMessage, currentUser, isTypi
   const [showContactInfo, setShowContactInfo] = useState(false);
   const [showClearConfirmation, setShowClearConfirmation] = useState(false);
   const [showDeleteConfirmation, setShowDeleteConfirmation] = useState(false);
+  const [showLeaveGroupConfirmation, setShowLeaveGroupConfirmation] = useState(false);
   const [showNotification, setShowNotification] = useState(false);
   const [notificationData, setNotificationData] = useState({ type: 'success', title: '', message: '' });
   const [isLoadingAction, setIsLoadingAction] = useState(false);
@@ -603,7 +604,7 @@ const ChatWindow = ({ selectedUser, messages, onSendMessage, currentUser, isTypi
   }, [socket, currentUser]);
 
   const startCall = async (callType) => {
-    if (!socket || !selectedUser) return;
+    if (!socket || !selectedUser || selectedGroup) return;
 
     const targetUserId = selectedUser._id || selectedUser.id;
 
@@ -1509,6 +1510,40 @@ const ChatWindow = ({ selectedUser, messages, onSendMessage, currentUser, isTypi
     }
   };
 
+  const handleLeaveGroup = () => {
+    setShowLeaveGroupConfirmation(true);
+  };
+
+  const handleConfirmLeaveGroup = async () => {
+    setIsLoadingAction(true);
+    try {
+      const groupId = selectedGroup._id || selectedGroup.id;
+      await groupAPI.leaveGroup(groupId);
+      if (onLeaveGroup) {
+        onLeaveGroup(groupId);
+      }
+      setShowDropdown(false);
+      setShowLeaveGroupConfirmation(false);
+      setNotificationData({
+        type: 'success',
+        title: 'SUCCESS',
+        message: 'Left group successfully'
+      });
+      setShowNotification(true);
+    } catch (error) {
+      console.error('Error leaving group:', error);
+      setShowLeaveGroupConfirmation(false);
+      setNotificationData({
+        type: 'error',
+        title: 'ERROR',
+        message: 'Failed to leave group'
+      });
+      setShowNotification(true);
+    } finally {
+      setIsLoadingAction(false);
+    }
+  };
+
   const renderVoiceMessage = (msg) => {
     const messageId = msg._id || msg.id;
     const playbackState = voicePlayback[messageId] || {};
@@ -1687,15 +1722,21 @@ const ChatWindow = ({ selectedUser, messages, onSendMessage, currentUser, isTypi
         <div className="chat-window-header">
           <div className="chat-window-user-info">
             <div className="chat-window-avatar" onClick={() => setShowContactInfo(true)} style={{ cursor: 'pointer' }}>
-              {selectedUser?.profilePicture ? (
+              {selectedGroup ? (
+                <div style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover', background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontSize: '20px' }}>
+                  👥
+                </div>
+              ) : selectedUser?.profilePicture ? (
                 <img src={selectedUser.profilePicture} alt="User" style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover' }} />
               ) : (
-                selectedUser.username.charAt(0).toUpperCase()
+                selectedUser?.username?.charAt(0).toUpperCase()
               )}
             </div>
             <div className="chat-window-user-details" onClick={() => setShowContactInfo(true)} style={{ cursor: 'pointer' }}>
-              <h3>{selectedUser.username}</h3>
-              {isTyping ? (
+              <h3>{selectedGroup ? selectedGroup.name : selectedUser?.username}</h3>
+              {selectedGroup ? (
+                <p className="group-members">{selectedGroup.members?.length || 0} members</p>
+              ) : isTyping ? (
                 <p className="typing-indicator">typing...</p>
               ) : (
                 <div className="presence-status">
@@ -1708,12 +1749,16 @@ const ChatWindow = ({ selectedUser, messages, onSendMessage, currentUser, isTypi
             </div>
           </div>
           <div className="chat-window-header-actions">
-            <button className="icon-button" onClick={() => startCall('video')} title="Video call">
-              <MdVideoCall size={26} />
-            </button>
-            <button className="icon-button" onClick={() => startCall('audio')} title="Audio call">
-              <MdCall size={22} />
-            </button>
+            {!selectedGroup && (
+              <>
+                <button className="icon-button" onClick={() => startCall('video')} title="Video call">
+                  <MdVideoCall size={26} />
+                </button>
+                <button className="icon-button" onClick={() => startCall('audio')} title="Audio call">
+                  <MdCall size={22} />
+                </button>
+              </>
+            )}
             <div className="divider"></div>
             <button className={`icon-button ${showSearchBar ? 'active' : ''}`} onClick={handleToggleSearch} title="Search messages">
               <MdSearch size={22} />
@@ -1727,19 +1772,26 @@ const ChatWindow = ({ selectedUser, messages, onSendMessage, currentUser, isTypi
               </button>
               {showDropdown && (
                 <div className="chat-window-dropdown">
-                  <div className="dropdown-item" onClick={(e) => { toggleFavourite(selectedUser._id || selectedUser.id, e); setShowDropdown(false); }}>
-                    {favourites.includes(selectedUser._id || selectedUser.id) ? (
-                      <><MdStar className="menu-icon" style={{ color: '#00a884' }} /> Remove favourite</>
-                    ) : (
-                      <><MdStarBorder className="menu-icon" /> Add to favourites</>
-                    )}
-                  </div>
+                  {!selectedGroup && selectedUser && (
+                    <div className="dropdown-item" onClick={(e) => { toggleFavourite(selectedUser._id || selectedUser.id, e); setShowDropdown(false); }}>
+                      {favourites.includes(selectedUser._id || selectedUser.id) ? (
+                        <><MdStar className="menu-icon" style={{ color: '#00a884' }} /> Remove favourite</>
+                      ) : (
+                        <><MdStarBorder className="menu-icon" /> Add to favourites</>
+                      )}
+                    </div>
+                  )}
                   <div className="dropdown-item" onClick={handleContactInfo}>
-                    <IoMdInformationCircleOutline className="menu-icon" /> Contact info
+                    <IoMdInformationCircleOutline className="menu-icon" /> {selectedGroup ? 'Group info' : 'Contact info'}
                   </div>
                   <div className="dropdown-item" onClick={handleClearChat}>
                     <AiOutlineClear className="menu-icon" /> Clear chat
                   </div>
+                  {selectedGroup && (
+                    <div className="dropdown-item delete" onClick={handleLeaveGroup}>
+                      <MdArrowBack className="menu-icon" /> Leave group
+                    </div>
+                  )}
                   <div className="dropdown-item delete" onClick={handleDeleteChat}>
                     <MdDeleteOutline className="menu-icon" /> Delete chat
                   </div>
@@ -2138,37 +2190,74 @@ const ChatWindow = ({ selectedUser, messages, onSendMessage, currentUser, isTypi
               <button className="back-btn" onClick={() => setShowContactInfo(false)}>
                 <MdArrowBack size={24} />
               </button>
-              <span>Profile</span>
+              <span>{selectedGroup ? 'Group Info' : 'Profile'}</span>
             </div>
           </div>
           <div className="contact-info-content">
-            <div className="contact-photo-section">
-              <div className="contact-photo-large view-only">
-                {selectedUser?.profilePicture ? (
-                  <img src={selectedUser.profilePicture} alt="Profile" />
-                ) : (
-                  selectedUser.username.charAt(0).toUpperCase()
-                )}
-              </div>
-            </div>
+            {selectedGroup ? (
+              <>
+                <div className="contact-photo-section">
+                  <div className="contact-photo-large view-only" style={{ background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontSize: '48px' }}>
+                    👥
+                  </div>
+                </div>
 
-            <div className="contact-photo-name">
-              {selectedUser.username}
-            </div>
+                <div className="contact-photo-name">
+                  {selectedGroup.name}
+                </div>
 
-            <div className="contact-info-section">
-              <label>About</label>
-              <div className="contact-info-row">
-                <div className="contact-info-text">Available</div>
-              </div>
-            </div>
+                <div className="contact-info-section">
+                  <label>Description</label>
+                  <div className="contact-info-row">
+                    <div className="contact-info-text">{selectedGroup.description || 'No description'}</div>
+                  </div>
+                </div>
 
-            <div className="contact-info-section">
-              <label>Phone number</label>
-              <div className="contact-info-row">
-                <div className="contact-info-text">{selectedUser.phoneNumber || selectedUser.email}</div>
-              </div>
-            </div>
+                <div className="contact-info-section">
+                  <label>Members ({selectedGroup.members?.length || 0})</label>
+                  <div className="contact-info-row">
+                    {selectedGroup.members?.slice(0, 5).map((member, index) => (
+                      <div key={index} className="contact-info-text" style={{ marginBottom: '8px' }}>
+                        • {member.username || member.name}
+                      </div>
+                    ))}
+                    {selectedGroup.members?.length > 5 && (
+                      <div className="contact-info-text">• +{selectedGroup.members.length - 5} more</div>
+                    )}
+                  </div>
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="contact-photo-section">
+                  <div className="contact-photo-large view-only">
+                    {selectedUser?.profilePicture ? (
+                      <img src={selectedUser.profilePicture} alt="Profile" />
+                    ) : (
+                      selectedUser?.username?.charAt(0).toUpperCase()
+                    )}
+                  </div>
+                </div>
+
+                <div className="contact-photo-name">
+                  {selectedUser?.username}
+                </div>
+
+                <div className="contact-info-section">
+                  <label>About</label>
+                  <div className="contact-info-row">
+                    <div className="contact-info-text">Available</div>
+                  </div>
+                </div>
+
+                <div className="contact-info-section">
+                  <label>Phone number</label>
+                  <div className="contact-info-row">
+                    <div className="contact-info-text">{selectedUser?.phoneNumber || selectedUser?.email}</div>
+                  </div>
+                </div>
+              </>
+            )}
           </div>
         </div>
       )}
@@ -2188,6 +2277,15 @@ const ChatWindow = ({ selectedUser, messages, onSendMessage, currentUser, isTypi
         message="Delete this conversation? This action cannot be undone."
         onConfirm={handleConfirmDelete}
         onCancel={() => setShowDeleteConfirmation(false)}
+        isLoading={isLoadingAction}
+      />
+
+      <ConfirmationModal
+        isOpen={showLeaveGroupConfirmation}
+        title="Leave Group?"
+        message="Are you sure you want to leave this group?"
+        onConfirm={handleConfirmLeaveGroup}
+        onCancel={() => setShowLeaveGroupConfirmation(false)}
         isLoading={isLoadingAction}
       />
 

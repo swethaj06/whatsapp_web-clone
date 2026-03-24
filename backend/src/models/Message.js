@@ -10,7 +10,13 @@ const messageSchema = new mongoose.Schema({
   receiver: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
-    required: [true, 'Receiver is required'],
+    default: null,
+    index: true
+  },
+  group: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Group',
+    default: null,
     index: true
   },
   content: {
@@ -85,5 +91,7 @@ const messageSchema = new mongoose.Schema({
 // Compound indexes for optimized conversation fetching
 messageSchema.index({ sender: 1, receiver: 1, timestamp: -1 });
 messageSchema.index({ receiver: 1, sender: 1, timestamp: -1 });
+messageSchema.index({ group: 1, timestamp: -1 });
+messageSchema.index({ sender: 1, group: 1, timestamp: -1 });
 
 module.exports = mongoose.model('Message', messageSchema);

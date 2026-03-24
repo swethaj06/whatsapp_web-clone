@@ -2,12 +2,14 @@ import React, { useState, useEffect, useRef } from 'react';
 import { MdSearch, MdMoreVert, MdOutlineAddComment } from 'react-icons/md';
 import { IoMdPeople } from 'react-icons/io';
 import { MdLogout } from 'react-icons/md';
+import GroupCreationModal from './GroupCreationModal';
 import './ChatList.css';
 
-const ChatList = ({ users, currentUser, selectedUser, onSelectUser, onLogout, onProfileClick }) => {
+const ChatList = ({ users, currentUser, selectedUser, onSelectUser, onLogout, onProfileClick, onCreateGroup, groups = [] }) => {
   const [showDropdown, setShowDropdown] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [activeFilter, setActiveFilter] = useState('all');
+  const [showGroupModal, setShowGroupModal] = useState(false);
   const [favourites, setFavourites] = useState(() => {
     try {
       return JSON.parse(localStorage.getItem('whatsapp_favourites')) || [];
@@ -44,6 +46,17 @@ const ChatList = ({ users, currentUser, selectedUser, onSelectUser, onLogout, on
 
   // ... (keep useEffect)
 
+  const handleNewGroupClick = () => {
+    setShowGroupModal(true);
+    setShowDropdown(false);
+  };
+
+  const handleCreateGroup = async (groupData) => {
+    if (onCreateGroup) {
+      await onCreateGroup(groupData);
+    }
+  };
+
   return (
     <div className="chat-list">
       <div className="chat-list-header">
@@ -59,7 +72,7 @@ const ChatList = ({ users, currentUser, selectedUser, onSelectUser, onLogout, on
             />
             {showDropdown && (
               <div className="chat-list-dropdown">
-                <div className="dropdown-item"><IoMdPeople className="menu-icon" /> New group</div>
+                <div className="dropdown-item" onClick={handleNewGroupClick}><IoMdPeople className="menu-icon" /> New group</div>
                 <div className="dropdown-item logout" onClick={onLogout}><MdLogout className="menu-icon" /> Log out</div>
               </div>
             )}
@@ -87,55 +100,92 @@ const ChatList = ({ users, currentUser, selectedUser, onSelectUser, onLogout, on
 
       <div className="chat-list-items">
         {(() => {
-          let listToFilter = users;
+          // Combine users and groups into a single list
+          const allChats = [
+            ...users.map(u => ({ ...u, type: 'user' })),
+            ...(groups || []).map(g => ({ ...g, type: 'group', isGroup: true }))
+          ];
+
+          let listToFilter = allChats;
           if (activeFilter === 'unread') {
-            listToFilter = listToFilter.filter(u => u.unreadCount && u.unreadCount > 0);
+            listToFilter = listToFilter.filter(item => item.unreadCount && item.unreadCount > 0);
           } else if (activeFilter === 'favourites') {
-            listToFilter = listToFilter.filter(u => favourites.includes(u._id || u.id));
+            listToFilter = listToFilter.filter(item => favourites.includes(item._id || item.id));
           }
 
-          const filteredUsers = listToFilter.filter((u) =>
-            u.username?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            u.phoneNumber?.includes(searchQuery) ||
-            u.email?.toLowerCase().includes(searchQuery.toLowerCase())
-          );
+          // Search filter for both users and groups
+          const filteredChats = listToFilter.filter((item) => {
+            const searchLower = searchQuery.toLowerCase();
+            if (item.type === 'user') {
+              return (
+                item.username?.toLowerCase().includes(searchLower) ||
+                item.phoneNumber?.includes(searchLower) ||
+                item.email?.toLowerCase().includes(searchLower)
+              );
+            } else {
+              return item.name?.toLowerCase().includes(searchLower);
+            }
+          });
 
-          if (filteredUsers.length === 0) {
-            return <div className="no-users">No users found</div>;
+          if (filteredChats.length === 0) {
+            return <div className="no-users">No chats found</div>;
           }
 
-          return filteredUsers.map(u => {
-            const userId = u._id || u.id;
-            const selectedId = selectedUser ? (selectedUser._id || selectedUser.id) : null;
-            const isActive = selectedId === userId;
-            
+          return filteredChats.map(item => {
+            const itemId = item._id || item.id;
+            let isActive = false;
+
+            if (item.type === 'user' && selectedUser) {
+              isActive = selectedUser._id === itemId || selectedUser.id === itemId;
+            } else if (item.type === 'group' && currentUser?.selectedGroupId === itemId) {
+              isActive = true;
+            }
+
             return (
               <div
-                key={userId}
+                key={`${item.type}-${itemId}`}
                 className={`chat-item ${isActive ? 'active' : ''}`}
-                onClick={() => onSelectUser(u)}
+                onClick={() => {
+                  if (item.type === 'user') {
+                    onSelectUser(item);
+                  } else if (onSelectUser) {
+                    onSelectUser({ ...item, isGroup: true });
+                  }
+                }}
               >
                 <div className="chat-item-avatar">
-                  {u.profilePicture ? (
+                  {item.type === 'group' ? (
+                    <div className="group-avatar">
+                      <IoMdPeople size={24} />
+                    </div>
+                  ) : item.profilePicture ? (
                     <img
-                      src={u.profilePicture}
-                      alt={u.username}
+                      src={item.profilePicture}
+                      alt={item.username || item.name}
                       className="chat-item-avatar-image"
                     />
                   ) : (
-                    u.username ? u.username.charAt(0).toUpperCase() : '?'
+                    (item.username || item.name)?.charAt(0).toUpperCase() || '?'
                   )}
                 </div>
                 <div className="chat-item-content">
                   <div className="chat-item-name-row">
-                    <div className="chat-item-name">{u.username}</div>
+                    <div className="chat-item-name">
+                      {item.type === 'group' ? item.name : item.username}
+                      {item.type === 'group' && <span className="group-badge">Group</span>}
+                    </div>
                   </div>
-                  <div className="chat-item-preview">{u.lastMessage || 'Hey there! I am using WhatsApp.'}</div>
+                  <div className="chat-item-preview">
+                    {item.type === 'group' 
+                      ? `${item.members?.length || 0} members` 
+                      : (item.lastMessage || 'Hey there! I am using WhatsApp.')
+                    }
+                  </div>
                 </div>
                 <div className="chat-item-meta">
-                  {u.lastMessageTime && <div className="chat-time">{u.lastMessageTime}</div>}
+                  {item.lastMessageTime && <div className="chat-time">{item.lastMessageTime}</div>}
                   <div style={{ display: 'flex', alignItems: 'center', gap: '5px', marginTop: '4px', justifyContent: 'flex-end' }}>
-                    {u.unreadCount > 0 && <div className="unread-badge">{u.unreadCount}</div>}
+                    {item.unreadCount > 0 && <div className="unread-badge">{item.unreadCount}</div>}
                   </div>
                 </div>
               </div>
@@ -143,6 +193,14 @@ const ChatList = ({ users, currentUser, selectedUser, onSelectUser, onLogout, on
           });
         })()}
       </div>
+
+      <GroupCreationModal 
+        isOpen={showGroupModal}
+        onClose={() => setShowGroupModal(false)}
+        users={users}
+        currentUserId={currentUser?._id || currentUser?.id}
+        onCreateGroup={handleCreateGroup}
+      />
     </div>
   );
 };

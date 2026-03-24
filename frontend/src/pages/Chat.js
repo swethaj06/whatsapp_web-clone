@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { userAPI, messageAPI } from '../services/api';
+import { userAPI, messageAPI, groupAPI } from '../services/api';
 import { connectSocket, disconnectSocket } from '../services/socket';
 import ChatList from '../components/ChatList';
 import ChatWindow from '../components/ChatWindow';
@@ -14,14 +14,18 @@ const Chat = () => {
   const navigate = useNavigate();
   const { user, logout, updateUserProfile } = useAuth();
   const [users, setUsers] = useState([]);
+  const [groups, setGroups] = useState([]);
   const [selectedUser, setSelectedUser] = useState(null);
+  const [selectedGroup, setSelectedGroup] = useState(null);
   const [messages, setMessages] = useState([]);
   const [loading, setLoading] = useState(true);
   const [socket, setSocket] = useState(null);
   const [isTyping, setIsTyping] = useState(false);
   const [showProfile, setShowProfile] = useState(false);
+  const [showCommunities, setShowCommunities] = useState(false);
   const fileInputRef = useRef(null);
   const selectedUserRef = useRef(null);
+  const selectedGroupRef = useRef(null);
 
   const isUIDMatch = (id1, id2) => {
     if (!id1 || !id2) return false;
@@ -89,6 +93,16 @@ const Chat = () => {
       }
     };
 
+    const fetchGroups = async () => {
+      try {
+        const response = await groupAPI.getUserGroups();
+        setGroups(response.data?.data || []);
+      } catch (error) {
+        console.error('Error fetching groups:', error);
+        setGroups([]);
+      }
+    };
+
     const socketInstance = connectSocket();
     
     const handleConnect = () => {
@@ -106,6 +120,7 @@ const Chat = () => {
 
     setSocket(socketInstance);
     fetchUsers();
+    fetchGroups();
 
     return () => {
       if (socketInstance) {
@@ -118,6 +133,10 @@ const Chat = () => {
   useEffect(() => {
     selectedUserRef.current = selectedUser;
   }, [selectedUser]);
+
+  useEffect(() => {
+    selectedGroupRef.current = selectedGroup;
+  }, [selectedGroup]);
 
   const markActiveConversationAsRead = useCallback(async (activeUser = selectedUser) => {
     if (!activeUser || !user) return;
@@ -239,6 +258,22 @@ const Chat = () => {
     socket.on('messages_read', handleMessagesRead);
     socket.on('messages_delivered', handleMessagesDelivered);
 
+    const handleReceiveGroupMessage = (data) => {
+      const activeSelectedGroup = selectedGroupRef.current;
+      const groupId = activeSelectedGroup ? (activeSelectedGroup._id || activeSelectedGroup.id) : null;
+      const msgGroupId = data.group?._id || data.group;
+
+      if (groupId && isUIDMatch(msgGroupId, groupId)) {
+        setMessages(prev => {
+          const exists = prev.some(m => isUIDMatch(m._id || m.id, data._id || data.id));
+          if (exists) return prev;
+          return [...prev.filter(m => !m.isOptimistic), data];
+        });
+      }
+    };
+
+    socket.on('receive_group_message', handleReceiveGroupMessage);
+
     const handleStatusChange = ({ userId, status }) => {
       console.log(`[Socket] Received status change: User ${userId} is now ${status}`);
       setUsers(prev => {
@@ -338,6 +373,7 @@ const Chat = () => {
 
     return () => {
       socket.off('receive_message', handleReceiveMessage);
+      socket.off('receive_group_message', handleReceiveGroupMessage);
       socket.off('messages_read', handleMessagesRead);
       socket.off('messages_delivered', handleMessagesDelivered);
       socket.off('user_status_change', handleStatusChange);
@@ -394,6 +430,59 @@ const Chat = () => {
     setMessages([]);
   };
 
+  const handleSendGroupMessage = async (content) => {
+    const trimmedContent = content.trim();
+    if (!trimmedContent || !selectedGroup) return;
+
+    const currentUserId = user._id || user.id;
+    const groupId = selectedGroup._id || selectedGroup.id;
+    const optimisticId = `temp_text_${Date.now()}`;
+
+    console.log('📤 [handleSendGroupMessage] Sending group message');
+    console.log('  - currentUserId:', currentUserId);
+    console.log('  - groupId:', groupId);
+    console.log('  - content:', trimmedContent);
+
+    const optimisticMessage = {
+      _id: optimisticId,
+      sender: currentUserId,
+      group: groupId,
+      content: trimmedContent,
+      messageType: 'text',
+      timestamp: new Date(),
+      isOptimistic: true
+    };
+
+    setMessages(prev => [...prev, optimisticMessage]);
+
+    try {
+      const messageData = {
+        sender: currentUserId,
+        group: groupId,
+        content: trimmedContent
+      };
+      console.log('📤 [handleSendGroupMessage] Request data:', messageData);
+      const response = await messageAPI.sendGroupMessage(messageData);
+      console.log('✅ [handleSendGroupMessage] Response:', response.data);
+
+      setMessages(prev =>
+        prev.map(message => message._id === optimisticId ? response.data : message)
+      );
+
+      if (socket) {
+        socket.emit('send_group_message', response.data);
+      }
+    } catch (error) {
+      console.error('❌ [handleSendGroupMessage] Error:', error);
+      console.error('  - Status:', error.response?.status);
+      console.error('  - Data:', error.response?.data);
+      console.error('  - Message:', error.message);
+      
+      setMessages(prev => prev.filter(message => message._id !== optimisticId));
+      toast.error('Failed to send group message');
+    }
+  };
+
   const handleDeleteChat = (userId) => {
     setUsers(prevUsers => prevUsers.filter(u => (u._id || u.id).toString() !== userId.toString()));
     setMessages([]);
@@ -401,17 +490,59 @@ const Chat = () => {
     selectedUserRef.current = null;
   };
 
-  const handleSelectUser = async (userToSelect) => {
-    setSelectedUser(userToSelect);
-    selectedUserRef.current = userToSelect;
-    setUsers(prev => prev.map(u => {
-      if ((u._id || u.id).toString() === (userToSelect._id || userToSelect.id).toString()) {
-        return { ...u, unreadCount: 0 };
-      }
-      return u;
-    }));
+  const handleLeaveGroup = (groupId) => {
+    setGroups(prevGroups => prevGroups.filter(g => (g._id || g.id).toString() !== groupId.toString()));
+    setMessages([]);
+    setSelectedGroup(null);
+    selectedGroupRef.current = null;
+  };
 
-    await markActiveConversationAsRead(userToSelect);
+  const handleCreateGroup = async (groupData) => {
+    try {
+      const response = await groupAPI.createGroup(groupData);
+      const newGroup = response.data?.data || response.data;
+      setGroups(prev => [...prev, newGroup]);
+      setSelectedGroup(newGroup);
+      toast.success('Group created successfully!');
+    } catch (error) {
+      console.error('Error creating group:', error);
+      toast.error('Failed to create group');
+    }
+  };
+
+  const handleSelectUser = async (itemToSelect) => {
+    // Check if it's a group selection
+    if (itemToSelect.isGroup) {
+      console.log('👥 [handleSelectUser] Group selected:', itemToSelect.name, itemToSelect._id);
+      setSelectedGroup(itemToSelect);
+      setSelectedUser(null);
+      // Join the group room on socket
+      if (socket) {
+        const groupId = itemToSelect._id || itemToSelect.id;
+        console.log('👥 [handleSelectUser] Emitting join_group for:', groupId);
+        socket.emit('join_group', groupId);
+      }
+      // Optionally fetch group messages
+      try {
+        const response = await groupAPI.getGroupMessages(itemToSelect._id || itemToSelect.id);
+        setMessages(response.data?.data || response.data || []);
+        console.log('👥 [handleSelectUser] Group messages loaded:', (response.data?.data || response.data || []).length);
+      } catch (error) {
+        console.error('Error fetching group messages:', error);
+        setMessages([]);
+      }
+    } else {
+      // It's a user selection
+      setSelectedUser(itemToSelect);
+      setSelectedGroup(null);
+      setUsers(prev => prev.map(u => {
+        if ((u._id || u.id).toString() === (itemToSelect._id || itemToSelect.id).toString()) {
+          return { ...u, unreadCount: 0 };
+        }
+        return u;
+      }));
+      await markActiveConversationAsRead(itemToSelect);
+    }
   };
 
   const handleLogout = () => {
@@ -473,13 +604,13 @@ const Chat = () => {
     <div className="chat-layout-dark">
       <div className="chat-sidebar-thin">
         <div className="sidebar-top">
-          <div className={`sidebar-icon ${!showProfile ? 'active-icon' : ''}`} title="Chats" onClick={() => setShowProfile(false)}><MdChat size={22} /></div>
+          <div className={`sidebar-icon ${!showProfile && !showCommunities ? 'active-icon' : ''}`} title="Chats" onClick={() => { setShowProfile(false); setShowCommunities(false); }}><MdChat size={22} /></div>
           <div className="sidebar-icon" title="Status"><MdDonutLarge size={22} /></div>
-          <div className="sidebar-icon" title="Communities"><MdGroups size={24} /></div>
+          <div className={`sidebar-icon ${showCommunities ? 'active-icon' : ''}`} title="Communities" onClick={() => { setShowCommunities(!showCommunities); setShowProfile(false); }}><MdGroups size={24} /></div>
         </div>
         <div className="sidebar-bottom">
           <div className="sidebar-icon" title="Settings"><MdSettings size={24} /></div>
-          <div className={`sidebar-icon profile-icon ${showProfile ? 'active-icon' : ''}`} onClick={() => setShowProfile(true)} title="Profile">
+          <div className={`sidebar-icon profile-icon ${showProfile ? 'active-icon' : ''}`} onClick={() => { setShowProfile(true); setShowCommunities(false); }} title="Profile">
             {user?.profilePicture ? (
               <img src={user.profilePicture} alt="S" style={{ width: '30px', height: '30px', borderRadius: '50%', objectFit: 'cover' }} />
             ) : (
@@ -547,6 +678,56 @@ const Chat = () => {
               </div>
             </div>
           </div>
+        ) : showCommunities ? (
+          <div className="communities-drawer">
+            <div className="drawer-header">
+              <div className="drawer-header-content">
+                <button 
+                  className="back-btn"
+                  onClick={() => setShowCommunities(false)}
+                  title="Close"
+                >
+                  ←
+                </button>
+                <span>WhatsApp Community</span>
+              </div>
+            </div>
+            <div className="drawer-content">
+              {groups && groups.length > 0 ? (
+                <div className="communities-list">
+                  {groups.map((group) => (
+                    <div
+                      key={group._id || group.id}
+                      className="community-item"
+                      onClick={() => {
+                        handleSelectUser({ ...group, isGroup: true });
+                        setShowCommunities(false);
+                      }}
+                    >
+                      <div className="community-avatar">
+                        {group.groupPicture ? (
+                          <img src={group.groupPicture} alt={group.name} />
+                        ) : (
+                          <div className="community-avatar-placeholder">
+                            <MdGroups size={32} />
+                          </div>
+                        )}
+                      </div>
+                      <div className="community-info">
+                        <div className="community-name">{group.name}</div>
+                        <div className="community-description">{group.description || `${group.members?.length || 0} members`}</div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="no-communities">
+                  <MdGroups size={48} style={{ opacity: 0.3 }} />
+                  <p>No communities yet</p>
+                </div>
+              )}
+            </div>
+          </div>
         ) : (
           <ChatList
             users={users}
@@ -555,21 +736,33 @@ const Chat = () => {
             onSelectUser={handleSelectUser}
             onLogout={handleLogout}
             onProfileClick={() => setShowProfile(true)}
+            onCreateGroup={handleCreateGroup}
+            groups={groups}
           />
         )}
       </div>
 
       <div className="chat-window-panel">
-        {selectedUser ? (
+        {selectedUser || selectedGroup ? (
           <ChatWindow
             selectedUser={selectedUser}
+            selectedGroup={selectedGroup}
             messages={messages}
-            onSendMessage={handleSendMessage}
+            onSendMessage={(content) => {
+              if (selectedGroup) {
+                console.log('💬 [ChatWindow] Using handleSendGroupMessage for group:', selectedGroup.name);
+                return handleSendGroupMessage(content);
+              } else {
+                console.log('💬 [ChatWindow] Using handleSendMessage for user:', selectedUser?.username);
+                return handleSendMessage(content);
+              }
+            }}
             currentUser={user}
             isTyping={isTyping}
             socket={socket}
             onClearChat={handleClearChat}
             onDeleteChat={handleDeleteChat}
+            onLeaveGroup={handleLeaveGroup}
             setMessages={setMessages}
           />
         ) : (

@@ -377,6 +377,32 @@
   color: #d6455d;
 }
 
+/* Group Avatar and Badge Styles */
+.group-avatar {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #00a884 0%, #205e6f 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #ffffff;
+  flex-shrink: 0;
+}
+
+.group-badge {
+  display: inline-block;
+  background: #e7f5f2;
+  color: #008069;
+  font-size: 0.65rem;
+  font-weight: 700;
+  padding: 2px 6px;
+  border-radius: 4px;
+  margin-left: 6px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
 @keyframes fadeIn {
   from {
     opacity: 0;

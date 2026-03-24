@@ -259,6 +259,63 @@ exports.markConversationAsRead = async (req, res) => {
   }
 };
 
+exports.sendGroupMessage = async (req, res) => {
+  try {
+    console.log('📨 [sendGroupMessage] Request body:', req.body);
+    console.log('📨 [sendGroupMessage] Authenticated user:', req.user?._id);
+    
+    const { sender, group, content, messageType = 'text' } = req.body;
+
+    if (!sender || !group || !content) {
+      console.log('❌ [sendGroupMessage] Missing fields - sender:', sender, 'group:', group, 'content:', content);
+      return res.status(400).json({ error: 'Missing required fields: sender, group, or content' });
+    }
+
+    if (content.trim() === '') {
+      return res.status(400).json({ error: 'Message cannot be empty' });
+    }
+
+    // Convert to ObjectId if string, otherwise use as-is if already ObjectId
+    let senderId = sender;
+    let groupId = group;
+
+    try {
+      if (typeof sender === 'string') {
+        senderId = new mongoose.Types.ObjectId(sender);
+      }
+      if (typeof group === 'string') {
+        groupId = new mongoose.Types.ObjectId(group);
+      }
+    } catch (conversionError) {
+      console.log('❌ [sendGroupMessage] ObjectId conversion error:', conversionError.message);
+      return res.status(400).json({ error: 'Invalid sender or group ID format' });
+    }
+
+    const messageData = {
+      sender: senderId,
+      group: groupId,
+      content: content.trim(),
+      messageType,
+      receiver: null,
+      isDelivered: true
+    };
+
+    console.log('📨 [sendGroupMessage] Creating message with data:', messageData);
+    const message = await Message.create(messageData);
+    console.log('✅ [sendGroupMessage] Message created:', message._id);
+
+    const populatedMessage = await Message.findById(message._id)
+      .populate('sender', 'username email profilePicture')
+      .populate('group');
+
+    console.log('✅ [sendGroupMessage] Populated message:', populatedMessage);
+    res.status(201).json(populatedMessage || message);
+  } catch (error) {
+    console.error('❌ [sendGroupMessage] Error:', error.message, error.stack);
+    res.status(500).json({ error: error.message || 'Failed to send group message' });
+  }
+};
+
 exports.deleteMessage = async (req, res) => {
   try {
     const { senderId, receiverId } = req.query;

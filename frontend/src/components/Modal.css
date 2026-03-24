@@ -106,3 +106,268 @@
 .modal-btn-confirm:hover:not(:disabled) {
   background: #008a6f;
 }
+
+/* GroupCreationModal Styles */
+.modal-content {
+  max-width: 500px;
+  max-height: 80vh;
+  overflow-y: auto;
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  text-align: left;
+  gap: 16px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid #e5e5e5;
+}
+
+.modal-header h2 {
+  flex: 1;
+  text-align: left;
+}
+
+.modal-close-icon {
+  font-size: 24px;
+  cursor: pointer;
+  color: #666;
+  transition: color 0.3s;
+}
+
+.modal-close-icon:hover {
+  color: #333;
+}
+
+.modal-body {
+  text-align: left;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  padding: 16px 0;
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.form-group label {
+  font-size: 14px;
+  font-weight: 600;
+  color: #333;
+}
+
+.form-group input,
+.form-group textarea {
+  padding: 12px;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  font-size: 14px;
+  font-family: inherit;
+  transition: border-color 0.3s;
+}
+
+.form-group input:focus,
+.form-group textarea:focus {
+  outline: none;
+  border-color: #00a884;
+  box-shadow: 0 0 0 2px rgba(0, 168, 132, 0.1);
+}
+
+.form-group small {
+  font-size: 12px;
+  color: #999;
+}
+
+.selected-members {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.selected-members-label {
+  font-size: 14px;
+  font-weight: 600;
+  color: #333;
+}
+
+.selected-members-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.selected-member-chip {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: #e8f5e9;
+  color: #008a6f;
+  padding: 6px 12px;
+  border-radius: 20px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.chip-remove-icon {
+  font-size: 16px;
+  cursor: pointer;
+  transition: color 0.3s;
+}
+
+.chip-remove-icon:hover {
+  color: #005a41;
+}
+
+.members-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.members-list-header {
+  font-size: 14px;
+  font-weight: 600;
+  color: #333;
+}
+
+.members-scroll {
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  max-height: 250px;
+  overflow-y: auto;
+}
+
+.member-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  cursor: pointer;
+  transition: background-color 0.2s;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.member-item:last-child {
+  border-bottom: none;
+}
+
+.member-item:hover {
+  background-color: #f5f5f5;
+}
+
+.member-item.selected {
+  background-color: #e8f5e9;
+}
+
+.member-avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  overflow: hidden;
+  background: #e5e5e5;
+}
+
+.member-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.avatar-placeholder {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #00a884;
+  color: white;
+  font-weight: 600;
+  font-size: 16px;
+}
+
+.member-info {
+  flex: 1;
+  overflow: hidden;
+}
+
+.member-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: #333;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.member-email {
+  font-size: 12px;
+  color: #999;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.member-check-icon {
+  font-size: 20px;
+  color: #00a884;
+  flex-shrink: 0;
+}
+
+.no-members-found {
+  padding: 20px;
+  text-align: center;
+  color: #999;
+  font-size: 14px;
+}
+
+.modal-footer {
+  display: flex;
+  gap: 12px;
+  padding-top: 16px;
+  border-top: 1px solid #e5e5e5;
+}
+
+.btn-cancel,
+.btn-primary {
+  flex: 1;
+  padding: 12px 20px;
+  border: none;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.btn-cancel {
+  background: #e5e5e5;
+  color: #333;
+}
+
+.btn-cancel:hover:not(:disabled) {
+  background: #d5d5d5;
+}
+
+.btn-cancel:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.btn-primary {
+  background: #00a884;
+  color: white;
+}
+
+.btn-primary:hover:not(:disabled) {
+  background: #008a6f;
+}
+
+.btn-primary:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}

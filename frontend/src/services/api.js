@@ -49,6 +49,7 @@ export const userAPI = {
 // Message APIs
 export const messageAPI = {
   sendMessage: (messageData) => apiClient.post('/messages/send', messageData),
+  sendGroupMessage: (messageData) => apiClient.post('/messages/send-group', messageData),
   sendAttachment: (attachmentData) => apiClient.post('/messages/send-attachment', attachmentData),
   getMessages: (senderId, receiverId) =>
     apiClient.get('/messages', { params: { senderId, receiverId } }),
@@ -58,6 +59,19 @@ export const messageAPI = {
   deleteMessage: (messageId) => apiClient.delete(`/messages/${messageId}`),
   deleteMessages: (senderId, receiverId) =>
     apiClient.delete('/messages', { params: { senderId, receiverId } })
+};
+
+// Group APIs
+export const groupAPI = {
+  createGroup: (groupData) => apiClient.post('/groups/create', groupData),
+  getUserGroups: () => apiClient.get('/groups'),
+  getGroup: (groupId) => apiClient.get(`/groups/${groupId}`),
+  updateGroup: (groupId, groupData) => apiClient.put(`/groups/${groupId}`, groupData),
+  addMember: (groupId, userId) => apiClient.post(`/groups/${groupId}/add-member`, { userId }),
+  removeMember: (groupId, userId) => apiClient.post(`/groups/${groupId}/remove-member`, { userId }),
+  leaveGroup: (groupId) => apiClient.post(`/groups/${groupId}/leave`),
+  deleteGroup: (groupId) => apiClient.delete(`/groups/${groupId}`),
+  getGroupMessages: (groupId) => apiClient.get(`/groups/${groupId}/messages`)
 };
 
 export default apiClient;

@@ -12,6 +12,7 @@ dotenv.config();
 
 const User = require('./models/User');
 const Message = require('./models/Message');
+const Group = require('./models/Group');
 
 const app = express();
 const server = http.createServer(app);
@@ -61,10 +62,12 @@ app.get('/api/health', (req, res) => {
 // Import routes
 const userRoutes = require('./routes/userRoutes');
 const messageRoutes = require('./routes/messageRoutes');
+const groupRoutes = require('./routes/groupRoutes');
 
 // Use routes
 app.use('/api/users', userRoutes);
 app.use('/api/messages', messageRoutes);
+app.use('/api/groups', groupRoutes);
 
 const ActivityLog = require('./models/ActivityLog');
 const activeCalls = new Map();
@@ -146,6 +149,24 @@ io.on('connection', async (socket) => {
     io.emit('user_profile_update', data);
   });
 
+  socket.on('join_group', (groupId) => {
+    const normalizedGroupId = groupId?.toString();
+    console.log('👥 USER JOINED GROUP - GroupId:', normalizedGroupId, 'SocketId:', socket.id);
+    socket.join(normalizedGroupId);
+    try { 
+      ActivityLog.create({ socketId: socket.id, action: 'joined_group', groupId: normalizedGroupId }); 
+    } catch(e) {}
+  });
+
+  socket.on('leave_group', (groupId) => {
+    const normalizedGroupId = groupId?.toString();
+    console.log('👥 USER LEFT GROUP - GroupId:', normalizedGroupId, 'SocketId:', socket.id);
+    socket.leave(normalizedGroupId);
+    try { 
+      ActivityLog.create({ socketId: socket.id, action: 'left_group', groupId: normalizedGroupId }); 
+    } catch(e) {}
+  });
+
   socket.on('send_message', async (data) => {
     try { await ActivityLog.create({ socketId: socket.id, action: 'message_received' }); } catch(e) {}
     const receiverId = data.receiver._id || data.receiver;
@@ -167,6 +188,14 @@ io.on('connection', async (socket) => {
         messageIds: [data._id]
       });
     }
+  });
+
+  socket.on('send_group_message', async (data) => {
+    try { await ActivityLog.create({ socketId: socket.id, action: 'group_message_received' }); } catch(e) {}
+    const groupId = data.group._id || data.group;
+    
+    // Broadcast group message to all members in the group
+    io.to(groupId.toString()).emit('receive_group_message', data);
   });
 
   socket.on('call_user', async (data) => {
