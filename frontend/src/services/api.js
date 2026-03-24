@@ -78,6 +78,7 @@ export const groupAPI = {
 export const statusAPI = {
   createStatus: (statusData) => apiClient.post('/status', statusData),
   getStatuses: () => apiClient.get('/status'),
+  getStatusWithMedia: (statusId) => apiClient.get(`/status/${statusId}`),
   getUserStatuses: (userId) => apiClient.get(`/status/user/${userId}`),
   markStatusAsViewed: (statusId) => apiClient.patch(`/status/${statusId}/view`),
   getStatusViewers: (statusId) => apiClient.get(`/status/${statusId}/viewers`),

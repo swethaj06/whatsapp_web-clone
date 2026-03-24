@@ -11,14 +11,18 @@ const statusSchema = new mongoose.Schema({
     type: String,
     required: true
   },
-  mediaUrl: {
-    type: String,
+  mediaData: {
+    type: String, // Base64 encoded media data
     default: null
   },
   mediaType: {
     type: String,
     enum: ['text', 'image', 'video'],
     default: 'text'
+  },
+  mimeType: {
+    type: String,
+    default: null // e.g., 'image/jpeg', 'video/mp4'
   },
   textColor: {
     type: String,

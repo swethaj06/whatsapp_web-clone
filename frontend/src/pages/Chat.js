@@ -760,6 +760,7 @@ const Chat = () => {
                     setStatusRefresh(prev => prev + 1);
                     setShowStatusCreatorInDrawer(false);
                   }}
+                  onClose={() => setShowStatusCreatorInDrawer(false)}
                   onBack={() => setShowStatusCreatorInDrawer(false)}
                   isInDrawer={true}
                 />

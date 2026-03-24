@@ -37,17 +37,23 @@ app.use((req, res, next) => {
 });
 
 // Database Connection
+let dbConnected = false;
 const connectDB = async () => {
   try {
     await mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/whatsapp_clone');
-    console.log('MongoDB connected successfully');
+    console.log('✅ MongoDB connected successfully');
+    dbConnected = true;
     
     // Reset all users to offline on server startup
     await User.updateMany({}, { status: 'offline' });
     console.log('🧹 Initialized all users to offline status');
   } catch (error) {
-    console.error('MongoDB connection error:', error);
-    process.exit(1);
+    console.error('⚠️  MongoDB connection error:', error.message);
+    console.log('📌 Server running in limited mode. To fully enable features:');
+    console.log('   1. Install MongoDB locally: https://www.mongodb.com/try/download/community');
+    console.log('   2. Start MongoDB: mongod');
+    console.log('   3. Or use MongoDB Atlas: https://www.mongodb.com/cloud/atlas');
+    dbConnected = false;
   }
 };
 
@@ -56,7 +62,11 @@ connectDB();
 
 // Routes
 app.get('/api/health', (req, res) => {
-  res.json({ message: 'Server is running' });
+  res.json({ 
+    message: 'Server is running',
+    database: dbConnected ? 'connected' : 'disconnected',
+    timestamp: new Date().toISOString()
+  });
 });
 
 // Import routes

@@ -93,9 +93,10 @@ const StatusViewer = ({ userStatus, currentUserId, onClose, onStatusDeleted }) =
   };
 
   const handleDownload = async () => {
-    if (currentStatus.mediaUrl) {
+    const mediaUrl = currentStatus.mediaUrl;
+    if (mediaUrl) {
       const link = document.createElement('a');
-      link.href = normalizeFileUrl(currentStatus.mediaUrl);
+      link.href = mediaUrl;
       link.download = `status_${currentStatus._id}`;
       link.click();
     }
@@ -156,15 +157,17 @@ const StatusViewer = ({ userStatus, currentUserId, onClose, onStatusDeleted }) =
             </div>
           ) : currentStatus.mediaType === 'image' ? (
             <img
-              src={normalizeFileUrl(currentStatus.mediaUrl)}
+              src={currentStatus.mediaUrl || normalizeFileUrl(currentStatus.contentUrl)}
               alt="Status"
               className="status-media"
+              onError={(e) => console.error('Error loading image:', e)}
             />
           ) : (
             <video
-              src={normalizeFileUrl(currentStatus.mediaUrl)}
+              src={currentStatus.mediaUrl || normalizeFileUrl(currentStatus.contentUrl)}
               controls
               className="status-media"
+              onError={(e) => console.error('Error loading video:', e)}
             />
           )}
         </div>

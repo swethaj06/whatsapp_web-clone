@@ -13,8 +13,11 @@ const upload = multer({
 // Create a new status
 router.post('/', protect, upload.single('media'), statusController.createStatus);
 
-// Get all statuses from contacts
+// Get all statuses from contacts (without media data)
 router.get('/', protect, statusController.getStatuses);
+
+// Get single status with media data
+router.get('/:statusId', protect, statusController.getStatusWithMedia);
 
 // Get statuses for a specific user
 router.get('/user/:userId', protect, statusController.getUserStatuses);

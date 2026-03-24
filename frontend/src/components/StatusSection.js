@@ -1,23 +1,28 @@
 import React, { useState, useEffect } from 'react';
 import { statusAPI, normalizeFileUrl } from '../services/api';
-import { MdImage, MdVideoLibrary, MdAdd } from 'react-icons/md';
+import { MdImage, MdVideoLibrary, MdAdd, MdRefresh } from 'react-icons/md';
 import './StatusSection.css';
 
 const StatusSection = ({ currentUser, onStatusClick, onCreateStatusClick, refreshTrigger = 0 }) => {
   const [statuses, setStatuses] = useState([]);
   const [viewedStatusIds, setViewedStatusIds] = useState(new Set());
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
   useEffect(() => {
+    console.log('📸 [StatusSection] refreshTrigger changed:', refreshTrigger);
     fetchStatuses();
   }, [refreshTrigger, currentUser?._id]);
 
   const fetchStatuses = async () => {
     try {
       setLoading(true);
+      setError(null);
       console.log('📸 [StatusSection] Fetching all statuses for user:', currentUser?._id);
       const response = await statusAPI.getStatuses();
-      console.log('📸 [StatusSection] Received statuses:', response.data);
+      console.log('📸 [StatusSection] API Response:', response);
+      console.log('📸 [StatusSection] Received statuses count:', response.data?.length || 0);
+      console.log('📸 [StatusSection] Statuses data:', response.data);
       
       let allStatuses = response.data || [];
       
@@ -32,9 +37,11 @@ const StatusSection = ({ currentUser, onStatusClick, onCreateStatusClick, refres
         return new Date(b.statuses[0]?.createdAt || 0) - new Date(a.statuses[0]?.createdAt || 0);
       });
       
+      console.log('📸 [StatusSection] After sorting:', allStatuses.length, 'user groups');
       setStatuses(allStatuses);
     } catch (error) {
       console.error('❌ Error fetching statuses:', error);
+      setError(error.message || 'Failed to fetch statuses');
     } finally {
       setLoading(false);
     }
@@ -55,6 +62,17 @@ const StatusSection = ({ currentUser, onStatusClick, onCreateStatusClick, refres
     return <div className="status-section"><p className="status-section-loading">Loading statuses...</p></div>;
   }
 
+  if (error) {
+    return (
+      <div className="status-section">
+        <p className="status-section-error">Error: {error}</p>
+        <button onClick={fetchStatuses} style={{ marginTop: '10px', padding: '8px 16px' }}>
+          Retry
+        </button>
+      </div>
+    );
+  }
+
   return (
     <div className="status-section">
       <div className="status-section-header">
@@ -62,15 +80,32 @@ const StatusSection = ({ currentUser, onStatusClick, onCreateStatusClick, refres
           <h3>Status Updates</h3>
           <p className="status-section-subtitle">{statuses.length} users with statuses</p>
         </div>
-        {onCreateStatusClick && (
+        <div style={{ display: 'flex', gap: '8px' }}>
           <button 
-            className="status-create-btn"
-            onClick={onCreateStatusClick}
-            title="Create a new status"
+            onClick={fetchStatuses}
+            title="Refresh statuses"
+            style={{
+              background: 'transparent',
+              border: 'none',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              padding: '8px'
+            }}
           >
-            <MdAdd size={24} />
+            <MdRefresh size={20} />
           </button>
-        )}
+          {onCreateStatusClick && (
+            <button 
+              className="status-create-btn"
+              onClick={onCreateStatusClick}
+              title="Create a new status"
+            >
+              <MdAdd size={24} />
+            </button>
+          )}
+        </div>
       </div>
 
       <div className="status-section-list">

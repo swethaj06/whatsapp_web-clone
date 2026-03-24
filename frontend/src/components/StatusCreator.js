@@ -59,17 +59,35 @@ const StatusCreator = ({ currentUser, onStatusCreated, onClose, isInDrawer = fal
         formData.append('mediaType', statusType);
       }
 
+      console.log('📝 [StatusCreator] Submitting status:', {
+        type: statusType,
+        hasFile: !!selectedFile,
+        contentLength: statusType === 'text' ? textContent.length : selectedFile?.size
+      });
+
       try {
         const response = await statusAPI.createStatus(formData);
         
+        console.log('📝 [StatusCreator] API Response:', response);
+
         if (!response || !response.data) {
           throw new Error('Invalid response from server');
         }
 
+        console.log('✅ [StatusCreator] Status created successfully:', response.data);
         toast.success('Status posted successfully!');
+        
+        // Reset form
+        setTextContent('');
+        setSelectedFile(null);
+        setPreview(null);
+        setStatusType('text');
+        
         onStatusCreated();
         onClose();
       } catch (apiError) {
+        console.error('❌ [StatusCreator] API Error:', apiError);
+        
         // Check if it's an authentication error
         if (apiError.response?.status === 401) {
           toast.error('Session expired. Please log in again.');
@@ -83,7 +101,7 @@ const StatusCreator = ({ currentUser, onStatusCreated, onClose, isInDrawer = fal
         throw new Error(errorMessage);
       }
     } catch (error) {
-      console.error('Error creating status:', error);
+      console.error('❌ Error creating status:', error);
       const errorMessage = error?.message || 'Failed to create status';
       toast.error(errorMessage);
     } finally {
