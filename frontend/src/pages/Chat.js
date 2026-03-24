@@ -837,6 +837,7 @@ const Chat = () => {
               onCreateGroup={handleCreateGroup}
               groups={groups}
               onStatusClick={setSelectedUserStatus}
+              onCreateStatusClick={() => setShowStatusCreatorInDrawer(true)}
               statusRefreshTrigger={statusRefresh}
             />
           </>

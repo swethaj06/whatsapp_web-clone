@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { statusAPI, normalizeFileUrl } from '../services/api';
-import { MdImage, MdVideoLibrary } from 'react-icons/md';
+import { MdImage, MdVideoLibrary, MdAdd } from 'react-icons/md';
 import './StatusSection.css';
 
-const StatusSection = ({ currentUser, onStatusClick, refreshTrigger = 0 }) => {
+const StatusSection = ({ currentUser, onStatusClick, onCreateStatusClick, refreshTrigger = 0 }) => {
   const [statuses, setStatuses] = useState([]);
   const [viewedStatusIds, setViewedStatusIds] = useState(new Set());
   const [loading, setLoading] = useState(true);
@@ -58,8 +58,19 @@ const StatusSection = ({ currentUser, onStatusClick, refreshTrigger = 0 }) => {
   return (
     <div className="status-section">
       <div className="status-section-header">
-        <h3>Status Updates</h3>
-        <p className="status-section-subtitle">{statuses.length} users with statuses</p>
+        <div className="status-section-header-content">
+          <h3>Status Updates</h3>
+          <p className="status-section-subtitle">{statuses.length} users with statuses</p>
+        </div>
+        {onCreateStatusClick && (
+          <button 
+            className="status-create-btn"
+            onClick={onCreateStatusClick}
+            title="Create a new status"
+          >
+            <MdAdd size={24} />
+          </button>
+        )}
       </div>
 
       <div className="status-section-list">

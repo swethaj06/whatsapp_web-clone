@@ -6,7 +6,7 @@ import GroupCreationModal from './GroupCreationModal';
 import StatusSection from './StatusSection';
 import './ChatList.css';
 
-const ChatList = ({ users, currentUser, selectedUser, onSelectUser, onLogout, onProfileClick, onCreateGroup, groups = [], onStatusClick = null, statusRefreshTrigger = 0 }) => {
+const ChatList = ({ users, currentUser, selectedUser, onSelectUser, onLogout, onProfileClick, onCreateGroup, groups = [], onStatusClick = null, onCreateStatusClick = null, statusRefreshTrigger = 0 }) => {
   const [showDropdown, setShowDropdown] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [activeFilter, setActiveFilter] = useState('all');
@@ -105,6 +105,7 @@ const ChatList = ({ users, currentUser, selectedUser, onSelectUser, onLogout, on
           <StatusSection 
             currentUser={currentUser}
             onStatusClick={onStatusClick || (() => {})}
+            onCreateStatusClick={onCreateStatusClick || (() => {})}
             refreshTrigger={statusRefreshTrigger}
           />
         ) : (

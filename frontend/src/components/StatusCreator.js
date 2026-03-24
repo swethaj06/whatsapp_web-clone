@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { statusAPI } from '../services/api';
 import './StatusCreator.css';
-import { MdClose, MdAddAPhoto, MdVideocam } from 'react-icons/md';
+import { MdClose, MdAttachFile, MdSend } from 'react-icons/md';
 import toast from 'react-hot-toast';
 
 const StatusCreator = ({ currentUser, onStatusCreated, onClose, isInDrawer = false, onBack }) => {
@@ -10,12 +10,13 @@ const StatusCreator = ({ currentUser, onStatusCreated, onClose, isInDrawer = fal
   const [selectedFile, setSelectedFile] = useState(null);
   const [preview, setPreview] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
-  const [textColor, setTextColor] = useState('#000000');
-  const [backgroundColor, setBackgroundColor] = useState('#ffffff');
 
-  const handleFileSelect = (event, type) => {
+  const handleFileSelect = (event) => {
     const file = event.target.files[0];
     if (file) {
+      // Determine type based on MIME type
+      const type = file.type.startsWith('image/') ? 'image' : 'video';
+      
       setSelectedFile(file);
       setStatusType(type);
 
@@ -52,8 +53,6 @@ const StatusCreator = ({ currentUser, onStatusCreated, onClose, isInDrawer = fal
       if (statusType === 'text') {
         formData.append('content', textContent);
         formData.append('mediaType', 'text');
-        formData.append('textColor', textColor);
-        formData.append('backgroundColor', backgroundColor);
       } else if (selectedFile) {
         formData.append('content', selectedFile.name || 'Media status');
         formData.append('media', selectedFile);
@@ -101,10 +100,6 @@ const StatusCreator = ({ currentUser, onStatusCreated, onClose, isInDrawer = fal
               <div className="text-editor">
                 <div
                   className="text-preview"
-                  style={{
-                    backgroundColor: backgroundColor,
-                    color: textColor
-                  }}
                 >
                   <textarea
                     value={textContent}
@@ -112,33 +107,11 @@ const StatusCreator = ({ currentUser, onStatusCreated, onClose, isInDrawer = fal
                     placeholder="What's on your mind?"
                     className="text-input"
                     style={{
-                      color: textColor,
                       backgroundColor: 'transparent'
                     }}
                   />
                 </div>
 
-                <div className="text-controls">
-                  <div className="control-group">
-                    <label>Text Color:</label>
-                    <input
-                      type="color"
-                      value={textColor}
-                      onChange={(e) => setTextColor(e.target.value)}
-                      className="color-picker"
-                    />
-                  </div>
-
-                  <div className="control-group">
-                    <label>Background Color:</label>
-                    <input
-                      type="color"
-                      value={backgroundColor}
-                      onChange={(e) => setBackgroundColor(e.target.value)}
-                      className="color-picker"
-                    />
-                  </div>
-                </div>
               </div>
             ) : preview ? (
               <div className="media-preview">
@@ -152,51 +125,23 @@ const StatusCreator = ({ currentUser, onStatusCreated, onClose, isInDrawer = fal
           </div>
 
           <div className="creator-actions">
-            <div className="upload-buttons">
-              <label className="upload-btn image">
-                <MdAddAPhoto /> Photo
-                <input
-                  type="file"
-                  accept="image/*"
-                  onChange={(e) => handleFileSelect(e, 'image')}
-                  hidden
-                />
-              </label>
-              <label className="upload-btn video">
-                <MdVideocam /> Video
-                <input
-                  type="file"
-                  accept="video/*"
-                  onChange={(e) => handleFileSelect(e, 'video')}
-                  hidden
-                />
-              </label>
-              {statusType !== 'text' && (
-                <button
-                  className="upload-btn text"
-                  onClick={() => {
-                    setStatusType('text');
-                    setSelectedFile(null);
-                    setPreview(null);
-                  }}
-                >
-                  Text
-                </button>
-              )}
-            </div>
-
-            <div className="submit-actions">
-              <button className="btn-cancel" onClick={onBack}>
-                Back
-              </button>
-              <button
-                className="btn-submit"
-                onClick={handleSubmit}
-                disabled={isLoading}
-              >
-                {isLoading ? 'Posting...' : 'Post Status'}
-              </button>
-            </div>
+            <label className="upload-btn-single">
+              <MdAttachFile /> File
+              <input
+                type="file"
+                accept="image/*,video/*"
+                onChange={handleFileSelect}
+                hidden
+              />
+            </label>
+            <button
+              className="post-btn-round"
+              onClick={handleSubmit}
+              disabled={isLoading}
+              title="Post Status"
+            >
+              <MdSend />
+            </button>
           </div>
         </div>
       ) : (
@@ -214,10 +159,6 @@ const StatusCreator = ({ currentUser, onStatusCreated, onClose, isInDrawer = fal
                 <div className="text-editor">
                   <div
                     className="text-preview"
-                    style={{
-                      backgroundColor: backgroundColor,
-                      color: textColor
-                    }}
                   >
                     <textarea
                       value={textContent}
@@ -225,32 +166,9 @@ const StatusCreator = ({ currentUser, onStatusCreated, onClose, isInDrawer = fal
                       placeholder="What's on your mind?"
                       className="text-input"
                       style={{
-                        color: textColor,
                         backgroundColor: 'transparent'
                       }}
                     />
-                  </div>
-
-                  <div className="text-controls">
-                    <div className="control-group">
-                      <label>Text Color:</label>
-                      <input
-                        type="color"
-                        value={textColor}
-                        onChange={(e) => setTextColor(e.target.value)}
-                        className="color-picker"
-                      />
-                    </div>
-
-                    <div className="control-group">
-                      <label>Background Color:</label>
-                      <input
-                        type="color"
-                        value={backgroundColor}
-                        onChange={(e) => setBackgroundColor(e.target.value)}
-                        className="color-picker"
-                      />
-                    </div>
                   </div>
                 </div>
               ) : preview ? (
@@ -265,51 +183,23 @@ const StatusCreator = ({ currentUser, onStatusCreated, onClose, isInDrawer = fal
             </div>
 
             <div className="creator-actions">
-              <div className="upload-buttons">
-                <label className="upload-btn image">
-                  <MdAddAPhoto /> Photo
-                  <input
-                    type="file"
-                    accept="image/*"
-                    onChange={(e) => handleFileSelect(e, 'image')}
-                    hidden
-                  />
-                </label>
-                <label className="upload-btn video">
-                  <MdVideocam /> Video
-                  <input
-                    type="file"
-                    accept="video/*"
-                    onChange={(e) => handleFileSelect(e, 'video')}
-                    hidden
-                  />
-                </label>
-                {statusType !== 'text' && (
-                  <button
-                    className="upload-btn text"
-                    onClick={() => {
-                      setStatusType('text');
-                      setSelectedFile(null);
-                      setPreview(null);
-                    }}
-                  >
-                    Text
-                  </button>
-                )}
-              </div>
-
-              <div className="submit-actions">
-                <button className="btn-cancel" onClick={onClose}>
-                  Cancel
-                </button>
-                <button
-                  className="btn-submit"
-                  onClick={handleSubmit}
-                  disabled={isLoading}
-                >
-                  {isLoading ? 'Posting...' : 'Post Status'}
-                </button>
-              </div>
+              <label className="upload-btn-single">
+                <MdAttachFile /> File
+                <input
+                  type="file"
+                  accept="image/*,video/*"
+                  onChange={handleFileSelect}
+                  hidden
+                />
+              </label>
+              <button
+                className="post-btn-round"
+                onClick={handleSubmit}
+                disabled={isLoading}
+                title="Post Status"
+              >
+                <MdSend />
+              </button>
             </div>
           </div>
         </div>

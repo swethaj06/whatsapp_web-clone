@@ -2,42 +2,71 @@
   display: flex;
   flex-direction: column;
   height: 100%;
-  background-color: #fff;
-  border-radius: 8px;
+  background: #ffffff;
+  border-radius: 0;
   padding: 0;
   margin: 0;
+  box-shadow: none;
 }
 
 .status-section-header {
-  padding: 16px 20px;
+  padding: 16px 16px;
   border-bottom: 1px solid #e5e5e5;
-  background-color: #fafafa;
-  border-radius: 8px 8px 0 0;
+  background: #ffffff;
+  border-radius: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
 }
 
-.status-section-header h3 {
+.status-section-header-content {
+  flex: 1;
+}
+
+.status-create-btn {
+  background: none;
+  border: none;
+  color: #25d366;
+  cursor: pointer;
+  padding: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  transition: background-color 0.2s ease-out;
+  flex-shrink: 0;
+}
+
+.status-create-btn:hover {
+  background-color: rgba(37, 211, 102, 0.1);
+}
+
+.status-section-header-content h3 {
   margin: 0;
-  font-size: 16px;
-  font-weight: 800;
+  font-size: 15px;
+  font-weight: 700;
   color: #000000;
-  letter-spacing: -0.3px;
+  letter-spacing: 0;
 }
 
-.status-section-subtitle {
-  margin: 4px 0 0 0;
+.status-section-header-content .status-section-subtitle {
+  margin: 0;
   font-size: 13px;
-  color: #54656f;
+  color: #999999;
   font-weight: 500;
+  letter-spacing: 0;
+  display: none;
 }
 
 .status-section-list {
   flex: 1;
   overflow-y: auto;
-  background-color: #fff;
+  background-color: #ffffff;
 }
 
 .status-section-list::-webkit-scrollbar {
-  width: 6px;
+  width: 4px;
 }
 
 .status-section-list::-webkit-scrollbar-track {
@@ -45,12 +74,12 @@
 }
 
 .status-section-list::-webkit-scrollbar-thumb {
-  background: #ccc;
-  border-radius: 3px;
+  background: #e0e0e0;
+  border-radius: 2px;
 }
 
 .status-section-list::-webkit-scrollbar-thumb:hover {
-  background: #aaa;
+  background: #c0c0c0;
 }
 
 .status-section-empty,
@@ -62,55 +91,60 @@
   height: 100%;
   color: #999;
   text-align: center;
-  padding: 40px 20px;
+  padding: 60px 20px;
 }
 
 .status-section-empty p,
 .status-section-loading {
   margin: 16px 0 0 0;
-  font-size: 14px;
-  color: #54656f;
-  font-weight: 600;
+  font-size: 15px;
+  color: #666666;
+  font-weight: 500;
+  letter-spacing: 0;
 }
 
 .status-section-empty small {
   margin: 8px 0 0 0;
-  font-size: 12px;
-  color: #99a3ac;
+  font-size: 13px;
+  color: #999999;
   display: block;
-  font-weight: 500;
+  font-weight: 400;
 }
 
 .status-section-item {
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 12px 16px;
+  padding: 8px 8px;
   border-bottom: 1px solid #f0f0f0;
   cursor: pointer;
-  transition: background-color 0.2s ease;
+  transition: background-color 0.15s ease-out;
+  position: relative;
 }
 
 .status-section-item:hover {
   background-color: #f5f5f5;
+  padding-left: 8px;
 }
 
 .status-section-item.unviewed {
-  background-color: #fff9e6;
+  background-color: transparent;
+  border-left: none;
+  padding-left: 8px;
 }
 
 .status-section-item.unviewed:hover {
-  background-color: #fff3cc;
+  background-color: #f5f5f5;
 }
 
 /* Special styling for "Your Story" */
 .status-section-item.my-story {
-  background: linear-gradient(135deg, rgba(37, 211, 102, 0.08) 0%, rgba(37, 211, 102, 0.04) 100%);
-  border-left: 3px solid #25d366;
+  background: transparent;
+  border-left: none;
 }
 
 .status-section-item.my-story:hover {
-  background: linear-gradient(135deg, rgba(37, 211, 102, 0.15) 0%, rgba(37, 211, 102, 0.08) 100%);
+  background: #f5f5f5;
 }
 
 .status-section-avatar {
@@ -120,7 +154,21 @@
   height: 48px;
   border-radius: 50%;
   overflow: hidden;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: #e0e0e0;
+  border: 2px solid #d0d0d0;
+  transition: border-color 0.2s ease-out;
+}
+
+.status-section-item.unviewed .status-section-avatar {
+  border-color: #25d366;
+}
+
+.status-section-item.viewed .status-section-avatar {
+  border-color: #d0d0d0;
+}
+
+.status-section-item.my-story .status-section-avatar {
+  border-color: #25d366;
 }
 
 .status-section-avatar-img {
@@ -138,33 +186,48 @@
   color: white;
   font-weight: 600;
   font-size: 18px;
+  background: #667eea;
 }
 
 .status-section-unviewed-indicator {
-  position: absolute;
-  bottom: -2px;
-  right: -2px;
-  width: 14px;
-  height: 14px;
-  background-color: #25d366;
-  border: 3px solid white;
-  border-radius: 50%;
+  display: none;
 }
 
 .status-section-info-name {
-  font-size: 15px;
-  font-weight: 700;
+  font-size: 14px;
+  font-weight: 600;
   color: #000000;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
+.status-section-item.unviewed .status-section-info-name {
+  color: #000000;
+  font-weight: 700;
+}
+
+.status-section-item.viewed .status-section-info-name {
+  color: #999999;
+  font-weight: 500;
+}
+
 .status-section-info-time {
   font-size: 13px;
-  color: #99a3ac;
-  font-weight: 500;
+  color: #999999;
+  font-weight: 400;
   margin-top: 2px;
+  transition: color 0.15s ease-out;
+}
+
+.status-section-item.unviewed .status-section-info-time {
+  color: #666666;
+  font-weight: 500;
+}
+
+.status-section-item.viewed .status-section-info-time {
+  color: #cccccc;
+  font-weight: 400;
 }
 
 .status-section-info {
@@ -172,17 +235,17 @@
   min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 2px;
 }
 
 .status-section-username {
   font-size: 15px;
-  font-weight: 700;
+  font-weight: 500;
   color: #000000;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  letter-spacing: -0.3px;
+  letter-spacing: 0;
 }
 
 .status-section-meta {
@@ -190,39 +253,9 @@
   align-items: center;
   gap: 6px;
   font-size: 13px;
-  color: #99a3ac;
+  color: #999999;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  font-weight: 600;
-}
-
-.status-section-count {
-  display: block;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.status-section-type {
-  display: flex;
-  align-items: center;
-  color: #128c7e;
-}
-
-/* Responsive design */
-@media (max-width: 768px) {
-  .status-section-item {
-    padding: 10px 12px;
-    gap: 10px;
-  }
-
-  .status-section-avatar {
-    width: 44px;
-    height: 44px;
-  }
-
-  .status-section-username {
-    font-size: 13px;
-  }
+  font-weight: 400;
 }

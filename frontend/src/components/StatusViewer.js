@@ -188,7 +188,7 @@ const StatusViewer = ({ userStatus, currentUserId, onClose, onStatusDeleted }) =
           {userStatus.statuses.map((_, index) => (
             <div
               key={index}
-              className={`progress-bar ${index < currentStatusIndex ? 'viewed' : ''} ${index === currentStatusIndex && isAutoPlayActive ? 'viewing' : ''}`}
+              className={`progress-bar ${index < currentStatusIndex ? 'viewed' : ''} ${index === currentStatusIndex ? 'active' : ''}`}
             />
           ))}
         </div>
@@ -197,30 +197,35 @@ const StatusViewer = ({ userStatus, currentUserId, onClose, onStatusDeleted }) =
         {showViewers && (
           <div className="viewers-modal">
             <div className="modal-header">
-              <h4>Seen by</h4>
-              <button onClick={() => {
+              <h4>Seen by ({viewers.length})</h4>
+              <button className="modal-close-btn" onClick={() => {
                 setShowViewers(false);
                 setIsAutoPlayActive(true); // Resume auto-play when closing viewers
-              }}>✕</button>
+              }}>
+                <MdClose />
+              </button>
             </div>
-            <div className="viewers-list">
-              {viewers.length > 0 ? (
-                viewers.map(viewer => (
+            {viewers.length > 0 ? (
+              <div className="viewers-list">
+                {viewers.map(viewer => (
                   <div key={viewer.userId._id} className="viewer-item">
                     <img
                       src={normalizeFileUrl(viewer.userId.profilePicture)}
                       alt={viewer.userId.username}
+                      className="viewer-avatar"
                     />
                     <div className="viewer-info">
-                      <p>{viewer.userId.username}</p>
-                      <small>{formatViewerTime(viewer.viewedAt)}</small>
+                      <p className="viewer-name">{viewer.userId.username}</p>
+                      <p className="viewer-time">{formatViewerTime(viewer.viewedAt)}</p>
                     </div>
                   </div>
-                ))
-              ) : (
+                ))}
+              </div>
+            ) : (
+              <div className="no-viewers">
                 <p>No one has viewed this status yet</p>
-              )}
-            </div>
+              </div>
+            )}
           </div>
         )}
       </div>
