@@ -358,28 +358,7 @@ Use Postman or API testing tools:
 2. Import API collection (if available)
 3. Test endpoints with different scenarios
 
-## Contributing
 
-Contributions are welcome! Please follow these steps:
-
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/YourFeature`)
-3. Commit changes (`git commit -m 'Add YourFeature'`)
-4. Push to branch (`git push origin feature/YourFeature`)
-5. Open a Pull Request
-
-## License
-
-This project is licensed under the MIT License - see LICENSE file for details.
-
-## Support
-
-For issues and questions:
-- Open an issue on GitHub
-- Check existing issues for solutions
-- Contact the development team
-
-## Changelog
 
 ### Version 1.0.0 (Initial Release)
 - User authentication
@@ -391,7 +370,3 @@ For issues and questions:
 - Responsive design
 
 ---
-
-**Happy Coding!** 🎉
-
-For more information and updates, visit the project repository.
