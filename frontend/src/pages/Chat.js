@@ -725,9 +725,9 @@ const Chat = () => {
               </div>
 
               <div className="profile-info-section">
-                <label>Phone number</label>
+                <label>Email</label>
                 <div className="profile-info-row">
-                  <div className="profile-info-text">{user?.phoneNumber || user?.email}</div>
+                  <div className="profile-info-text">{user?.email}</div>
                 </div>
               </div>
 

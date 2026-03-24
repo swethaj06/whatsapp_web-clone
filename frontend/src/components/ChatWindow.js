@@ -2282,9 +2282,9 @@ const ChatWindow = ({ selectedUser, selectedGroup, messages, onSendMessage, curr
                 </div>
 
                 <div className="contact-info-section">
-                  <label>Phone number</label>
+                  <label>Email</label>
                   <div className="contact-info-row">
-                    <div className="contact-info-text">{selectedUser?.phoneNumber || selectedUser?.email}</div>
+                    <div className="contact-info-text">{selectedUser?.email}</div>
                   </div>
                 </div>
               </>

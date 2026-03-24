@@ -14,9 +14,10 @@
   --danger: #d6455d;
   display: flex;
   height: 100vh;
-  width: 100vw;
+  width: 100%;
+  max-width: 100%;
   background: var(--app-bg);
-  position: absolute;
+  position: relative;
   top: 0;
   left: 0;
   overflow: hidden;
@@ -25,6 +26,7 @@
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   z-index: 50;
+  box-sizing: border-box;
 }
 
 .chat-layout-dark::before {
@@ -101,7 +103,7 @@
 }
 
 .chat-list-panel {
-  width: 410px;
+  width: 360px;
   background: var(--surface-strong);
   backdrop-filter: blur(18px);
   -webkit-backdrop-filter: blur(18px);
@@ -110,6 +112,9 @@
   flex-direction: column;
   box-shadow: 14px 0 32px rgba(15, 23, 42, 0.06);
   z-index: 2;
+  min-width: 280px;
+  max-width: 50%;
+  overflow: hidden;
 }
 
 .chat-window-panel {

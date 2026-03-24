@@ -3,6 +3,9 @@
   height: 100vh;
   display: flex;
   flex-direction: column;
+  max-width: 100%;
+  overflow: hidden;
+  box-sizing: border-box;
 }
 
 * {
