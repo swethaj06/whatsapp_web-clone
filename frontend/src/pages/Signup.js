@@ -65,12 +65,12 @@ const Signup = () => {
         </div>
 
         <div className="wa-main-card">
-          <div className="wa-qr-layout">
+          <div className="wa-signup-layout">
             
             {/* Left Side: Information */}
-            <div className="qr-instructions" style={{ paddingRight: '20px' }}>
+            <div className="signup-info-section">
               <h2>Join WhatsApp</h2>
-              <ol className="instruction-list" style={{ marginTop: '20px' }}>
+              <ol className="instruction-list">
                 <li>Create an integrated profile to chat securely with friends and family</li>
                 <li>Experience end-to-end encryption to keep your data private</li>
                 <li>Sync your chats instantly across all your desktop and mobile devices</li>
@@ -78,9 +78,9 @@ const Signup = () => {
             </div>
 
             {/* Right Side: Signup Form */}
-            <div className="wa-email-layout" style={{ flex: 1, padding: '0 0 0 50px', borderLeft: '1px solid #e9edef', alignItems: 'flex-start' }}>
-              <div className="email-form-container" style={{ margin: 0, maxWidth: '100%' }}>
-                <h2 style={{ textAlign: 'left', marginBottom: '25px' }}>Sign up</h2>
+            <div className="signup-form-section">
+              <div className="email-form-container">
+                <h2 className="signup-title">Sign up</h2>
                 
                 {error && <div className="error-message">{error}</div>}
 
@@ -109,8 +109,8 @@ const Signup = () => {
                     />
                   </div>
 
-                  <div className="form-group" style={{ display: 'flex', gap: '15px' }}>
-                    <div style={{ flex: 1 }}>
+                  <div className="form-group signup-password-group">
+                    <div className="password-field">
                       <label htmlFor="password">Password</label>
                       <input
                         id="password"
@@ -121,7 +121,7 @@ const Signup = () => {
                         required
                       />
                     </div>
-                    <div style={{ flex: 1 }}>
+                    <div className="password-field">
                       <label htmlFor="confirmPassword">Confirm Password</label>
                       <input
                         id="confirmPassword"
@@ -138,7 +138,6 @@ const Signup = () => {
                     type="submit"
                     disabled={loading}
                     className="login-submit-btn"
-                    style={{marginTop: '10px'}}
                   >
                     {loading ? 'Creating account...' : 'Create Account'}
                   </button>
@@ -147,7 +146,6 @@ const Signup = () => {
                 <Link 
                   to="/login" 
                   className="switch-login-btn back-btn"
-                  style={{ textAlign: 'center', textDecoration: 'none', display: 'block', marginTop: '25px' }}
                 >
                   &lt; Back to Login
                 </Link>
