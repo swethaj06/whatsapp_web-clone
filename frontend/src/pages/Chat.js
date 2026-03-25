@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { userAPI, messageAPI, groupAPI, statusAPI } from '../services/api';
+import { userAPI, messageAPI, groupAPI } from '../services/api';
 import { connectSocket, disconnectSocket } from '../services/socket';
 import ChatList from '../components/ChatList';
 import ChatWindow from '../components/ChatWindow';
@@ -11,7 +11,7 @@ import StatusCreator from '../components/StatusCreator';
 import toast from 'react-hot-toast';
 import './Chat.css';
 import { FaWhatsapp } from 'react-icons/fa';
-import { MdLockOutline, MdChat, MdDonutLarge, MdGroups, MdLaptopMac, MdInsertDriveFile, MdPersonAddAlt1, MdArrowBack, MdEdit } from 'react-icons/md';
+import { MdLockOutline, MdChat, MdDonutLarge, MdGroups, MdArrowBack, MdEdit } from 'react-icons/md';
 
 const Chat = () => {
   const navigate = useNavigate();
@@ -838,7 +838,7 @@ const Chat = () => {
               onCreateGroup={handleCreateGroup}
               groups={groups}
               onStatusClick={setSelectedUserStatus}
-              onCreateStatusClick={() => setShowStatusCreatorInDrawer(true)}
+              onCreateStatusClick={() => setShowStatusCreator(true)}
               statusRefreshTrigger={statusRefresh}
             />
           </>

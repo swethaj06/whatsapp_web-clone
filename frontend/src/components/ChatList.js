@@ -20,6 +20,7 @@ const ChatList = ({ users, currentUser, selectedUser, onSelectUser, onLogout, on
   });
   const dropdownRef = useRef(null);
 
+  // eslint-disable-next-line no-unused-vars
   const toggleFavourite = (userId, e) => {
     e.stopPropagation();
     let newFavs;

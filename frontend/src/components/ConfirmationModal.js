@@ -1,5 +1,4 @@
 import React from 'react';
-import { MdCheckCircle, MdErrorOutline, MdClose } from 'react-icons/md';
 import './Modal.css';
 
 const ConfirmationModal = ({ isOpen, title, message, onConfirm, onCancel, isLoading = false }) => {

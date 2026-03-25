@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { statusAPI, normalizeFileUrl } from '../services/api';
 import { MdImage, MdVideoLibrary, MdAdd, MdRefresh } from 'react-icons/md';
 import './StatusSection.css';
@@ -9,12 +9,7 @@ const StatusSection = ({ currentUser, onStatusClick, onCreateStatusClick, refres
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  useEffect(() => {
-    console.log('📸 [StatusSection] refreshTrigger changed:', refreshTrigger);
-    fetchStatuses();
-  }, [refreshTrigger, currentUser?._id]);
-
-  const fetchStatuses = async () => {
+  const fetchStatuses = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
@@ -28,8 +23,8 @@ const StatusSection = ({ currentUser, onStatusClick, onCreateStatusClick, refres
       
       // Sort: current user's status first, then by creation date
       allStatuses.sort((a, b) => {
-        const aIsCurrentUser = a.user._id === currentUser?._id || a.user._id.toString() === currentUser?._id.toString();
-        const bIsCurrentUser = b.user._id === currentUser?._id || b.user._id.toString() === currentUser?._id.toString();
+        const aIsCurrentUser = a.user._id === currentUser?._id || (currentUser?._id && a.user._id.toString() === currentUser._id.toString());
+        const bIsCurrentUser = b.user._id === currentUser?._id || (currentUser?._id && b.user._id.toString() === currentUser._id.toString());
         
         if (aIsCurrentUser && !bIsCurrentUser) return -1;
         if (!aIsCurrentUser && bIsCurrentUser) return 1;
@@ -45,7 +40,12 @@ const StatusSection = ({ currentUser, onStatusClick, onCreateStatusClick, refres
     } finally {
       setLoading(false);
     }
-  };
+  }, [currentUser?._id]);
+
+  useEffect(() => {
+    console.log('📸 [StatusSection] refreshTrigger changed:', refreshTrigger);
+    fetchStatuses();
+  }, [refreshTrigger, currentUser?._id, fetchStatuses]);
 
   const handleStatusClick = (userStatus) => {
     // Mark all statuses from this user as viewed
@@ -117,7 +117,7 @@ const StatusSection = ({ currentUser, onStatusClick, onCreateStatusClick, refres
           </div>
         ) : (
           statuses.map((userStatus) => {
-            const isCurrentUserStatus = userStatus.user._id === currentUser?._id || userStatus.user._id.toString() === currentUser?._id.toString();
+            const isCurrentUserStatus = userStatus.user._id === currentUser?._id || (currentUser?._id && userStatus.user._id.toString() === currentUser._id.toString());
             const hasUnviewedStatus = userStatus.statuses.some(
               status => !viewedStatusIds.has(status._id)
             );

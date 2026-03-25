@@ -315,9 +315,10 @@ const ChatWindow = ({ selectedUser, selectedGroup, messages, onSendMessage, curr
   };
 
   useEffect(() => {
+    const objectUrlsCurrent = objectUrlsRef.current;
     return () => {
-      objectUrlsRef.current.forEach((url) => URL.revokeObjectURL(url));
-      objectUrlsRef.current.clear();
+      objectUrlsCurrent.forEach((url) => URL.revokeObjectURL(url));
+      objectUrlsCurrent.clear();
       Object.values(voiceAudioRefs.current).forEach((audioElement) => {
         if (audioElement) {
           audioElement.pause();
@@ -328,7 +329,7 @@ const ChatWindow = ({ selectedUser, selectedGroup, messages, onSendMessage, curr
       resetRecordingState();
       resetCallState();
     };
-  }, []);
+  }, [resetRecordingState, resetCallState]);
 
   useEffect(() => {
     if (!localVideoRef.current) return;
@@ -619,7 +620,7 @@ const ChatWindow = ({ selectedUser, selectedGroup, messages, onSendMessage, curr
       socket.off('call_busy', handleCallBusy);
       socket.off('call_error', handleCallError);
     };
-  }, [socket, currentUser]);
+  }, [socket, currentUser, callNotificationSent, resetCallState]);
 
   const startCall = async (callType) => {
     if (!socket || !selectedUser || selectedGroup) return;
@@ -853,7 +854,7 @@ const ChatWindow = ({ selectedUser, selectedGroup, messages, onSendMessage, curr
     if (!showSearchBar || !searchQuery.trim() || filteredSearchMatches.length === 0) {
       scrollToBottom();
     }
-  }, [messages, recordingPreview]);
+  }, [messages, recordingPreview, showSearchBar, searchQuery, filteredSearchMatches.length]);
 
   useEffect(() => {
     if (!showSearchBar) return;

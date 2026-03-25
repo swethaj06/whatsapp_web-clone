@@ -7,6 +7,7 @@ import toast from 'react-hot-toast';
 const StatusCreator = ({ currentUser, onStatusCreated, onClose, isInDrawer = false, onBack }) => {
   const [statusType, setStatusType] = useState('text');
   const [textContent, setTextContent] = useState('');
+  const [imageCaption, setImageCaption] = useState('');
   const [selectedFile, setSelectedFile] = useState(null);
   const [preview, setPreview] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -19,6 +20,7 @@ const StatusCreator = ({ currentUser, onStatusCreated, onClose, isInDrawer = fal
       
       setSelectedFile(file);
       setStatusType(type);
+      setImageCaption(''); // Reset caption when file changes
 
       const reader = new FileReader();
       reader.onloadend = () => {
@@ -54,7 +56,7 @@ const StatusCreator = ({ currentUser, onStatusCreated, onClose, isInDrawer = fal
         formData.append('content', textContent);
         formData.append('mediaType', 'text');
       } else if (selectedFile) {
-        formData.append('content', selectedFile.name || 'Media status');
+        formData.append('content', imageCaption || selectedFile.name || 'Media status');
         formData.append('media', selectedFile);
         formData.append('mediaType', statusType);
       }
@@ -79,6 +81,7 @@ const StatusCreator = ({ currentUser, onStatusCreated, onClose, isInDrawer = fal
         
         // Reset form
         setTextContent('');
+        setImageCaption('');
         setSelectedFile(null);
         setPreview(null);
         setStatusType('text');
@@ -138,6 +141,19 @@ const StatusCreator = ({ currentUser, onStatusCreated, onClose, isInDrawer = fal
                 ) : (
                   <video src={preview} controls />
                 )}
+                <div className="text-input-container" style={{ marginTop: '16px' }}>
+                  <label>Add Caption (Optional)</label>
+                  <textarea
+                    value={imageCaption}
+                    onChange={(e) => setImageCaption(e.target.value)}
+                    placeholder="Add a caption to your media..."
+                    className="text-input"
+                    maxLength={280}
+                  />
+                  <small style={{ color: '#909699', fontSize: '12px', marginTop: '4px' }}>
+                    {imageCaption.length}/280 characters
+                  </small>
+                </div>
               </div>
             ) : null}
           </div>
@@ -196,6 +212,19 @@ const StatusCreator = ({ currentUser, onStatusCreated, onClose, isInDrawer = fal
                   ) : (
                     <video src={preview} controls />
                   )}
+                  <div className="text-input-container" style={{ marginTop: '16px' }}>
+                    <label>Add Caption (Optional)</label>
+                    <textarea
+                      value={imageCaption}
+                      onChange={(e) => setImageCaption(e.target.value)}
+                      placeholder="Add a caption to your media..."
+                      className="text-input"
+                      maxLength={280}
+                    />
+                    <small style={{ color: '#909699', fontSize: '12px', marginTop: '4px' }}>
+                      {imageCaption.length}/280 characters
+                    </small>
+                  </div>
                 </div>
               ) : null}
             </div>

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { statusAPI, normalizeFileUrl } from '../services/api';
 import './StatusViewer.css';
 import { MdClose, MdDownload, MdDeleteOutline } from 'react-icons/md';
@@ -13,30 +13,7 @@ const StatusViewer = ({ userStatus, currentUserId, onClose, onStatusDeleted }) =
 
   const currentStatus = userStatus.statuses[currentStatusIndex];
 
-  useEffect(() => {
-    fetchViewersForAllStatuses();
-  }, [userStatus]);
-
-  // Auto-play slideshow effect - 2 seconds per story
-  useEffect(() => {
-    if (!isAutoPlayActive || userStatus.statuses.length <= 1) return;
-
-    const timer = setTimeout(() => {
-      setCurrentStatusIndex(prevIndex => {
-        if (prevIndex < userStatus.statuses.length - 1) {
-          return prevIndex + 1;
-        } else {
-          // Reached end of stories
-          onClose();
-          return prevIndex;
-        }
-      });
-    }, 2000);
-
-    return () => clearTimeout(timer);
-  }, [currentStatusIndex, isAutoPlayActive, userStatus.statuses.length, onClose]);
-
-  const fetchViewersForAllStatuses = async () => {
+  const fetchViewersForAllStatuses = useCallback(async () => {
     try {
       const viewersData = await Promise.all(
         userStatus.statuses.map(status => 
@@ -49,7 +26,27 @@ const StatusViewer = ({ userStatus, currentUserId, onClose, onStatusDeleted }) =
     } catch (error) {
       console.error('Error fetching viewers:', error);
     }
-  };
+  }, [userStatus.statuses]);
+
+  useEffect(() => {
+    fetchViewersForAllStatuses();
+  }, [userStatus, fetchViewersForAllStatuses]);
+
+  // Auto-advance status every 2 seconds
+  useEffect(() => {
+    if (!isAutoPlayActive || showViewers) return;
+
+    const timer = setTimeout(() => {
+      if (currentStatusIndex < userStatus.statuses.length - 1) {
+        setCurrentStatusIndex(currentStatusIndex + 1);
+      } else {
+        // All statuses viewed, close the viewer
+        onClose();
+      }
+    }, 2000);
+
+    return () => clearTimeout(timer);
+  }, [currentStatusIndex, isAutoPlayActive, showViewers, userStatus.statuses.length, onClose]);
 
   const handlePrevious = () => {
     if (currentStatusIndex > 0) {
@@ -156,19 +153,29 @@ const StatusViewer = ({ userStatus, currentUserId, onClose, onStatusDeleted }) =
               <p>{currentStatus.content}</p>
             </div>
           ) : currentStatus.mediaType === 'image' ? (
-            <img
-              src={currentStatus.mediaUrl || normalizeFileUrl(currentStatus.contentUrl)}
-              alt="Status"
-              className="status-media"
-              onError={(e) => console.error('Error loading image:', e)}
-            />
+            <div className="image-with-caption">
+              <img
+                src={currentStatus.mediaUrl || normalizeFileUrl(currentStatus.contentUrl)}
+                alt="Status"
+                className="status-media"
+                onError={(e) => console.error('Error loading image:', e)}
+              />
+              {currentStatus.content && currentStatus.mediaType === 'image' && (
+                <div className="status-caption">{currentStatus.content}</div>
+              )}
+            </div>
           ) : (
-            <video
-              src={currentStatus.mediaUrl || normalizeFileUrl(currentStatus.contentUrl)}
-              controls
-              className="status-media"
-              onError={(e) => console.error('Error loading video:', e)}
-            />
+            <div className="video-with-caption">
+              <video
+                src={currentStatus.mediaUrl || normalizeFileUrl(currentStatus.contentUrl)}
+                controls
+                className="status-media"
+                onError={(e) => console.error('Error loading video:', e)}
+              />
+              {currentStatus.content && currentStatus.mediaType === 'video' && (
+                <div className="status-caption">{currentStatus.content}</div>
+              )}
+            </div>
           )}
         </div>
 

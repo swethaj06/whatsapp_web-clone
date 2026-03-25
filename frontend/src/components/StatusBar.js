@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { statusAPI } from '../services/api';
 import { normalizeFileUrl } from '../services/api';
 import './StatusBar.css';
@@ -9,11 +9,7 @@ const StatusBar = ({ currentUser, onStatusClick, onCreateStatusClick, hideCreate
   const [viewedStatusIds, setViewedStatusIds] = useState(new Set());
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    fetchStatuses();
-  }, [refreshTrigger, currentUser?._id]);
-
-  const fetchStatuses = async () => {
+  const fetchStatuses = useCallback(async () => {
     try {
       setLoading(true);
       const response = await statusAPI.getStatuses();
@@ -37,7 +33,11 @@ const StatusBar = ({ currentUser, onStatusClick, onCreateStatusClick, hideCreate
     } finally {
       setLoading(false);
     }
-  };
+  }, [currentUser?._id]);
+
+  useEffect(() => {
+    fetchStatuses();
+  }, [refreshTrigger, currentUser?._id, fetchStatuses]);
 
   const handleStatusClick = (userStatus) => {
     // Mark all statuses from this user as viewed
